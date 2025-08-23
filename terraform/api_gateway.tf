@@ -1,0 +1,1 @@
+# API Gateway removed - Cloud Run will be directly accessible 

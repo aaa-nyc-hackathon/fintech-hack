@@ -1,0 +1,72 @@
+swagger: '2.0'
+info:
+  title: Video Length API
+  description: API for extracting video length from GCS URIs
+  version: 1.0.0
+schemes:
+  - https
+produces:
+  - application/json
+paths:
+  /analyze_video:
+    post:
+      summary: Analyze video and get duration
+      operationId: analyze_video
+      x-google-backend:
+        address: ${CLOUD_RUN_URL}
+        deadline: 300
+      security:
+        - api_key: []
+      parameters:
+        - in: body
+          name: body
+          required: true
+          schema:
+            type: object
+            properties:
+              video_uri:
+                type: string
+                description: "GCS URI of the video file (e.g., gs://bucket-name/video.mp4)"
+                example: "gs://my-video-bucket/sample-video.mp4"
+            required:
+              - video_uri
+      responses:
+        '200':
+          description: Video duration
+          schema:
+            type: object
+            properties:
+              duration:
+                type: string
+                description: "Duration of the video"
+                example: "120.5 seconds"
+        '400':
+          description: Bad request - invalid GCS URI or unsupported format
+        '404':
+          description: Video file not found
+        '500':
+          description: Internal server error
+  /health:
+    get:
+      summary: Health check endpoint
+      operationId: health_check
+      x-google-backend:
+        address: ${CLOUD_RUN_URL}
+        deadline: 10
+      responses:
+        '200':
+          description: Service is healthy
+          schema:
+            type: object
+            properties:
+              status:
+                type: string
+                example: "healthy"
+              timestamp:
+                type: string
+                example: "2024-01-01T00:00:00Z"
+securityDefinitions:
+  api_key:
+    type: "apiKey"
+    name: "x-api-key"
+    in: "header" 

@@ -1,3 +1,213 @@
-# fintech-hack
+# Video Length API Service
 
-This is the readme for the hack project
+A GCP Cloud Run service that extracts video length from videos stored in Google Cloud Storage using Python, FFmpeg, and OpenCV.
+
+## Features
+
+- **Video Length Extraction**: Get video duration using FFmpeg (primary) and OpenCV (fallback)
+- **GCS Integration**: Accepts GCS URIs as input
+- **API Gateway**: Secure endpoint with API key authentication
+- **Cloud Run**: Scalable containerized service
+- **Health Checks**: Built-in health monitoring
+
+## Architecture
+
+```
+API Gateway → Cloud Run → Python App (FFmpeg + OpenCV) → GCS
+```
+
+## Prerequisites
+
+- Google Cloud Platform account
+- Terraform installed
+- Docker installed
+- gcloud CLI configured
+
+## Quick Start
+
+### 1. Set up GCP Project
+
+```bash
+# Set your project ID
+export PROJECT_ID="your-project-id"
+export REGION="us-central1"
+
+# Enable required APIs
+gcloud services enable apigateway.googleapis.com
+gcloud services enable run.googleapis.com
+gcloud services enable artifactregistry.googleapis.com
+gcloud services enable iam.googleapis.com
+gcloud services enable storage.googleapis.com
+```
+
+### 2. Configure Terraform
+
+```bash
+cd terraform
+
+# Copy and edit the variables file
+cp terraform.tfvars.example terraform.tfvars
+# Edit terraform.tfvars with your project details
+
+# Initialize Terraform
+terraform init
+
+# Plan the deployment
+terraform plan
+
+# Deploy the infrastructure
+terraform apply
+```
+
+### 3. Build and Deploy the Container
+
+```bash
+# Get the Artifact Registry URL from Terraform output
+ARTIFACT_REGISTRY=$(terraform output -raw artifact_registry_url)
+
+# Build the Docker image
+docker build -t video-length-service .
+
+# Tag for Artifact Registry
+docker tag video-length-service:latest \
+  ${REGION}-docker.pkg.dev/${PROJECT_ID}/${ARTIFACT_REGISTRY}/video-length-service-video-length:latest
+
+# Configure Docker for Artifact Registry
+gcloud auth configure-docker ${REGION}-docker.pkg.dev
+
+# Push the image
+docker push ${REGION}-docker.pkg.dev/${PROJECT_ID}/${ARTIFACT_REGISTRY}/video-length-service-video-length:latest
+```
+
+### 4. Test the API
+
+```bash
+# Get the API Gateway URL and API key
+API_URL=$(terraform output -raw api_gateway_url)
+API_KEY=$(terraform output -raw api_key)
+
+# Test the endpoint
+curl -X POST "${API_URL}/analyze_video" \
+  -H "x-api-key: ${API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "video_uri": "gs://your-bucket/your-video.mp4"
+  }'
+```
+
+## API Reference
+
+### Endpoint: `POST /analyze_video`
+
+**Request Body:**
+```json
+{
+  "video_uri": "gs://bucket-name/video.mp4"
+}
+```
+
+**Response:**
+```json
+{
+  "duration": "120.5 seconds"
+}
+```
+
+**Headers Required:**
+- `x-api-key`: Your API key for authentication
+- `Content-Type: application/json`
+
+### Health Check: `GET /health`
+
+Returns service health status.
+
+## Configuration
+
+### Environment Variables
+
+- `GCP_PROJECT`: GCP project ID (set automatically by Terraform)
+- `PORT`: Service port (defaults to 8080)
+
+### Supported Video Formats
+
+- MP4, AVI, MOV, MKV, and other formats supported by FFmpeg
+- Fallback to OpenCV for additional format support
+
+## Security
+
+- API key authentication required
+- Internal-only Cloud Run service
+- Service account with minimal permissions
+- Non-root container user
+
+## Monitoring
+
+- Health checks at `/health`
+- Structured logging
+- Cloud Run metrics and logs
+- API Gateway monitoring
+
+## Troubleshooting
+
+### Common Issues
+
+1. **FFmpeg not found**: Ensure the Dockerfile installs FFmpeg correctly
+2. **Permission denied**: Check service account permissions for GCS access
+3. **Video format not supported**: Check if the video format is supported by FFmpeg/OpenCV
+
+### Logs
+
+```bash
+# View Cloud Run logs
+gcloud logging read "resource.type=cloud_run_revision AND resource.labels.service_name=video-length-service-video-length"
+
+# View API Gateway logs
+gcloud logging read "resource.type=apigateway.googleapis.com/Gateway"
+```
+
+## Development
+
+### Local Testing
+
+```bash
+# Install dependencies
+pip install -r app/requirements.txt
+
+# Run locally
+python app/main.py
+
+# Test locally
+curl -X POST http://localhost:8080/analyze_video \
+  -H "Content-Type: application/json" \
+  -d '{"video_uri": "gs://your-bucket/video.mp4"}'
+```
+
+### Building Locally
+
+```bash
+# Build image
+docker build -t video-length-service .
+
+# Run container
+docker run -p 8080:8080 \
+  -e GOOGLE_APPLICATION_CREDENTIALS=/path/to/credentials.json \
+  video-length-service
+```
+
+## Cost Optimization
+
+- Cloud Run scales to zero when not in use
+- Use appropriate machine types for your workload
+- Monitor API Gateway usage and costs
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test thoroughly
+5. Submit a pull request
+
+## License
+
+This project is licensed under the MIT License.
