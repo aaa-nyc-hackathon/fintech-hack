@@ -2,12 +2,14 @@ import os
 import json
 import subprocess
 import tempfile
+import uuid
 from urllib.parse import urlparse
 import cv2
 from google.cloud import storage
 from flask import Flask, request, jsonify
 import logging
 from datetime import datetime
+from yolo_inference import YOLOInference
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -134,6 +136,160 @@ def format_file_size(size_bytes):
         size_bytes /= 1024.0
     return f"{size_bytes:.1f} TB"
 
+def extract_objects_from_video(video_path: str, yolo: YOLOInference, frame_interval: int, video_uri: str):
+    """Extract objects from video frames at specified intervals"""
+    try:
+        # Parse video URI to get bucket info
+        parsed = urlparse(video_uri)
+        bucket_name = parsed.netloc
+        
+        # Generate unique ID for this video processing session
+        unique_id = str(uuid.uuid4())[:8]
+        processed_dir = f"{unique_id}-processed-images"
+        
+        # Initialize video capture
+        cap = cv2.VideoCapture(video_path)
+        if not cap.isOpened():
+            raise ValueError("Could not open video file")
+        
+        # Get video properties
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        
+        logger.info(f"Processing video: {total_frames} frames at {fps} FPS")
+        logger.info(f"Extracting objects every {frame_interval} frames")
+        
+        frame_data = []
+        object_categories = {}
+        frame_count = 0
+        processed_frame_count = 0
+        
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                break
+            
+            # Process every Nth frame
+            if frame_count % frame_interval == 0:
+                logger.info(f"Processing frame {frame_count}/{total_frames}")
+                
+                # Save frame to temporary file for YOLO processing
+                temp_frame_path = tempfile.mktemp(suffix='.jpg')
+                cv2.imwrite(temp_frame_path, frame)
+                
+                try:
+                    # Run YOLO detection on this frame
+                    detections = yolo.detect_and_crop(
+                        temp_frame_path,
+                        padding=20,
+                        confidence_threshold=0.5
+                    )
+                    
+                    frame_objects = []
+                    
+                    # Process each detection
+                    for detection in detections:
+                        # Upload cropped image to GCS
+                        gcs_path = upload_cropped_image_to_gcs(
+                            detection['cropped_image_path'],
+                            bucket_name,
+                            processed_dir,
+                            detection['category_name'],
+                            processed_frame_count,
+                            detection['object_id']
+                        )
+                        
+                        # Add to frame objects
+                        frame_obj = {
+                            'object_id': detection['object_id'],
+                            'category_name': detection['category_name'],
+                            'confidence': detection['confidence'],
+                            'bbox': detection['bbox'],
+                            'gcs_path': gcs_path
+                        }
+                        frame_objects.append(frame_obj)
+                        
+                        # Track object categories
+                        if detection['category_name'] not in object_categories:
+                            object_categories[detection['category_name']] = []
+                        
+                        object_categories[detection['category_name']].append({
+                            'frame_number': frame_count,
+                            'confidence': detection['confidence'],
+                            'gcs_path': gcs_path
+                        })
+                    
+                    # Add frame data
+                    frame_data.append({
+                        'frame_number': frame_count,
+                        'timestamp_seconds': frame_count / fps if fps > 0 else 0,
+                        'objects': frame_objects
+                    })
+                    
+                    processed_frame_count += 1
+                    
+                    # Clean up temporary files
+                    yolo.cleanup_temp_files(detections)
+                    
+                except Exception as e:
+                    logger.error(f"Error processing frame {frame_count}: {e}")
+                    frame_data.append({
+                        'frame_number': frame_count,
+                        'timestamp_seconds': frame_count / fps if fps > 0 else 0,
+                        'objects': [],
+                        'error': str(e)
+                    })
+                
+                finally:
+                    # Clean up temporary frame file
+                    try:
+                        os.unlink(temp_frame_path)
+                    except Exception as e:
+                        logger.warning(f"Could not delete temporary frame file: {e}")
+            
+            frame_count += 1
+        
+        cap.release()
+        
+        return {
+            'frame_data': frame_data,
+            'object_categories': object_categories,
+            'processed_images_bucket': f"gs://{bucket_name}/{processed_dir}",
+            'unique_id': unique_id
+        }
+        
+    except Exception as e:
+        logger.error(f"Error extracting objects from video: {e}")
+        raise
+
+def upload_cropped_image_to_gcs(local_image_path: str, bucket_name: str, processed_dir: str, 
+                               category_name: str, frame_number: int, object_id: int) -> str:
+    """Upload cropped image to GCS bucket"""
+    try:
+        # Initialize GCS client
+        storage_client = storage.Client()
+        bucket = storage_client.bucket(bucket_name)
+        
+        # Create blob path
+        blob_name = f"{processed_dir}/{category_name}/frame_{frame_number:06d}_object_{object_id:03d}.png"
+        blob = bucket.blob(blob_name)
+        
+        # Upload image
+        blob.upload_from_filename(local_image_path)
+        
+        # Note: With uniform bucket-level access, we don't need to make individual blobs public
+        # The bucket's IAM policy controls access. Since you mentioned the bucket is public write,
+        # the images should be accessible based on the bucket's public read policy.
+        
+        gcs_path = f"gs://{bucket_name}/{blob_name}"
+        logger.info(f"Uploaded cropped image: {gcs_path}")
+        
+        return gcs_path
+        
+    except Exception as e:
+        logger.error(f"Error uploading to GCS: {e}")
+        raise
+
 @app.route('/health', methods=['GET'])
 def health_check():
     """Health check endpoint"""
@@ -145,7 +301,7 @@ def health_check():
 @app.route('/analyze_video', methods=['POST'])
 @require_api_key
 def analyze_video():
-    """Main endpoint to analyze video and get duration"""
+    """Main endpoint to analyze video and extract objects every 20 frames"""
     try:
         # Parse request
         data = request.get_json()
@@ -153,6 +309,7 @@ def analyze_video():
             return jsonify({'error': 'Missing video_uri in request body'}), 400
         
         video_uri = data['video_uri']
+        frame_interval = data.get('frame_interval', 20)  # Extract every N frames
         
         # Validate GCS URI
         is_valid, error_msg = validate_gcs_uri(video_uri)
@@ -173,14 +330,10 @@ def analyze_video():
             }), 400
         
         try:
-            # Try FFmpeg first (more reliable)
+            # Get video duration
             duration_seconds, error_msg = get_video_length_ffmpeg(temp_path)
-            
-            # Fallback to OpenCV if FFmpeg fails
             if duration_seconds is None:
-                logger.warning(f"FFmpeg failed, trying OpenCV: {error_msg}")
                 duration_seconds, error_msg = get_video_length_opencv(temp_path)
-                
                 if duration_seconds is None:
                     return jsonify({
                         'error': 'Could not determine video length',
@@ -188,9 +341,27 @@ def analyze_video():
                         'file_size': format_file_size(file_size) if file_size else 'Unknown'
                     }), 500
             
-            # Format response - just duration as string
+            # Initialize YOLO model
+            yolo = YOLOInference()
+            
+            # Extract objects from video frames
+            extracted_objects = extract_objects_from_video(
+                temp_path, 
+                yolo, 
+                frame_interval,
+                video_uri
+            )
+            
+            # Prepare response
             response = {
-                'duration': f"{round(duration_seconds, 2)} seconds"
+                'video_uri': video_uri,
+                'duration': f"{round(duration_seconds, 2)} seconds",
+                'frame_interval': frame_interval,
+                'total_frames_processed': len(extracted_objects['frame_data']),
+                'total_objects_detected': sum(len(frame['objects']) for frame in extracted_objects['frame_data']),
+                'object_categories': extracted_objects['object_categories'],
+                'processed_images_bucket': extracted_objects['processed_images_bucket'],
+                'frame_data': extracted_objects['frame_data']
             }
             
             return jsonify(response), 200

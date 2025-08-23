@@ -32,7 +32,8 @@ def test_analyze_video_endpoint(api_url, api_key, video_uri):
         }
         
         data = {
-            "video_uri": video_uri
+            "video_uri": video_uri,
+            "frame_interval": 20  # Extract objects every 20 frames
         }
         
         print(f"Testing analyze video endpoint with video URI: {video_uri}")
@@ -45,6 +46,10 @@ def test_analyze_video_endpoint(api_url, api_key, video_uri):
             result = response.json()
             print("✅ Success!")
             print(f"Duration: {result.get('duration')}")
+            print(f"Total frames processed: {result.get('total_frames_processed')}")
+            print(f"Total objects detected: {result.get('total_objects_detected')}")
+            print(f"Object categories: {list(result.get('object_categories', {}).keys())}")
+            print(f"Processed images bucket: {result.get('processed_images_bucket')}")
         else:
             print("❌ Failed!")
             print(f"Error: {response.text}")
