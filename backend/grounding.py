@@ -37,6 +37,8 @@ def image_to_base64(image_path):
 # vide the actual implementation for now
 def download_file(bucket_name: str, source_blob_name: str, dest_filename: str, client: storage.Client) -> None:
     # TODO: add error handling, add logging, add retry mechanism, factory pattern for different cloud providers
+    """ downloads a file from gcs """
+    assert source_blob_name.endswith(('.jpg', '.jpeg', '.png')), "only jpg/jpeg images are supported"
     bucket = client.bucket(bucket_name)
     blob = bucket.blob(source_blob_name)
     blob.download_to_filename(dest_filename)
@@ -44,11 +46,14 @@ def download_file(bucket_name: str, source_blob_name: str, dest_filename: str, c
 def call_anthropic(local_image_file: str) -> str:
     """ placeholder for calling anthropic api """
     assert local_image_file.endswith(('.jpg', '.jpeg', '.png')), "only jpg/jpeg images are supported"
+    # get the image format jpeg or png
     client = anthropic.Anthropic(
         api_key=A_API_KEY,
     )
     base64_image = image_to_base64(local_image_file)
     image_media_type = "image/jpeg"  # or "image/png" based on your image type
+    if local_image_file.endswith('.png'):
+        image_media_type = "image/png"
     message = client.messages.create(
         model="claude-opus-4-1-20250805",
         max_tokens=1024,
@@ -113,18 +118,28 @@ if __name__ == "__main__":
     # to the path of the service account key file
     # export GOOGLE_APPLICATION_CREDENTIALS="path/to/key.json"
     client = storage.Client()
-    local_image_file = "local_image.jpg"
-    "0c803398-processed-images/chair"
-    download_file(DEFAULT_BUCKET, DEFAULT_IMAGE, local_image_file, client)
+    # add the file extension to the dest filename # note the extension will be added based on the file downloaded
+    # cloud_image_file = "0c803398-processed-images/chair/frame_000000_object_000.png"
+    # NOTE: gcloud handles url encoding
+    cloud_image_file = "0c803398-processed-images/potted plant/frame_000004_object_004.png"
+    source_file_extension = cloud_image_file.split('.')[-1] # get the file extension
+    local_image_file = "local_image"  + '.' + source_file_extension
+    # DEFAULT_IMAGE
+    download_file(DEFAULT_BUCKET, cloud_image_file, local_image_file, client)
     stuff = call_anthropic(local_image_file)
     results = process_json_response(stuff)
     # now do something with the results, search via brave search api
     query = results.get("query")
     print(results)
-    serp = brave_search(query)
-    ## now we need to parse the serp and the results and add them together into an output json
-    # here we just print the serp for now, we need to iterate on prompt for output structure
-    print(serp)
+    if query:
+        try:
+            serp = brave_search(query)
+        except Exception as e:
+            print(f"Error calling Brave Search API: {e}")
+            serp = None
+        print(serp)
+        ## now we need to parse the serp and the results and add them together into an output json
+        # here we just print the serp for now, we need to iterate on prompt for output structure
     # results["sources"].extend(serp) if serp is not None else []
     output = json.loads(open("./json_schemata/rev_ground.json", "r").read())
     # now we need to merge results into output
@@ -133,7 +148,7 @@ if __name__ == "__main__":
     output["name"] = results.get("name", "unknown")
     output["condition"] = results.get("condition", "unknown")
     output["marketvalue"] = sum(estimated_prices) / len(estimated_prices) if len(estimated_prices) > 0 else -1
-    output["image"] = DEFAULT_BUCKET + "/" + DEFAULT_IMAGE
+    output["image"] = DEFAULT_BUCKET + "/" + cloud_image_file
     output["sources"] = results.get("sources", [])
     output["query"] = results.get("query", "unknown")
     output["reasoning"] = results.get("reasoning", "unknown")
