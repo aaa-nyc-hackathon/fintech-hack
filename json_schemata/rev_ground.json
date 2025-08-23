@@ -1,0 +1,1 @@
+{"name": "foo","condition": "like new","marketvalue": 1000,"image": "","sources": [{"title": "Some Article","url": "https://example.com/article","snippet": "This is a snippet from the article."}],"query": "What is the market value of a like new foo?"}
