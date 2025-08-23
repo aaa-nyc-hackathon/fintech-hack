@@ -151,6 +151,30 @@ curl -X POST "${API_URL}/analyze_video" \
 
 Returns service health status.
 
+### Valuation Research: `POST /valuation_function`
+
+**Purpose:** Research and valuation analysis for documents and assets.
+
+**Headers Required:**
+- `x-api-key`: Your API key for authentication
+- `Content-Type: application/json`
+
+**Request Body:**
+```json
+{
+  "gcs_uri": "gs://bucket-name/document.pdf"
+}
+```
+
+**Response:**
+```json
+{
+  "analysis_result": "Valuation analysis completed",
+  "document_type": "PDF",
+  "gcs_uri": "gs://bucket-name/document.pdf"
+}
+```
+
 ## Configuration
 
 ### Environment Variables

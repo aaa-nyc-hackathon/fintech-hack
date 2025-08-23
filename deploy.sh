@@ -78,6 +78,7 @@ enable_apis() {
         "storage.googleapis.com"
         "apikeys.googleapis.com"
         "cloudresourcemanager.googleapis.com"
+        "cloudfunctions2.googleapis.com"
     )
     
     for api in "${apis[@]}"; do
