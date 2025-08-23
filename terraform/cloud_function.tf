@@ -16,6 +16,8 @@ resource "google_cloudfunctions_function" "valuation_function" {
     PROJECT_ID = var.project_id
     API_KEY    = var.api_key
     GROQ_API_KEY = var.groq_api_key
+    BRAVE_API_KEY = var.brave_api_key
+    ANTHROPIC_API_KEY = var.anthropic_api_key
   }
 
   depends_on = [

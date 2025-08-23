@@ -39,8 +39,7 @@ class ExtractorLLM:
         self.model_name = model_name
         
         # Load GROQ API key from environment variable
-        #groq_api_key = os.environ.get('GROQ_API_KEY')
-        groq_api_key = "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"
+        groq_api_key = os.environ.get('GROQ_API_KEY')
         if not groq_api_key:
             raise ValueError("GROQ_API_KEY environment variable is required")
         

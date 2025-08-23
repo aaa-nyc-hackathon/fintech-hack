@@ -30,23 +30,10 @@ def valuation_function(request):
         # Log the request for debugging
         logging.info(f"Processing valuation request for: {gcs_uri}")
 
-        # Return dummy data in the specified format
-        dummy_response = {
-            "name": "foo",
-            "condition": "like new",
-            "marketvalue": 1000,
-            "image": "",
-            "sources": [
-                {
-                    "title": "Some Article",
-                    "url": "https://example.com/article",
-                    "snippet": "This is a snippet from the article."
-                }
-            ],
-            "query": "What is the market value of a like new foo?"
-        }
+        
 
-        return json.dumps(dummy_response), 200, {'Content-Type': 'application/json'}
+       
+
 
     except Exception as e:
         logging.exception("An unexpected error occurred in the valuation function.")
