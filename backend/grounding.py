@@ -18,7 +18,10 @@ import json
 
 SEARCH_PROMPT = "Formulate a search query of what is in the above image so that I can search it on the web. Give me prices for similar items on the web."
 
-OUTPUT_FILE = "Analyze this feedback and output in JSON format with search query: \“query\” and reasoning: \“reasoning\". The JSON schema is as follows: {\"name\": \"string\", \"condition\": \"string\", \"marketvalue\": number, \"image\": \"string\", \"sources\": [{\"title\": \"string\", \"url\": \"string\", \"snippet\": \"string\"}]}. Ensure the output is valid JSON."
+OUTPUT_FILE = "Analyze this feedback and output in JSON format with search query: \“query\” and reasoning: \“reasoning\". The JSON schema is as follows: {\"name\": \"string\", \"condition\": \"string\", \"marketvalue\": number, \"image\": \"string\", \"sources\": [{\"title\": \"string\", \"url\": \"string\", \"snippet\": \"string\", \"lowPrice\": \"int\", \"highPrice\": \"int\"}]}. Ensure the output is valid JSON."
+
+DEFAULT_BUCKET = "finteck-hackathon"
+DEFAULT_IMAGE = "2025FlatironLounge00092_HERO.jpg"
 
 from dotenv import load_dotenv
 
@@ -40,7 +43,7 @@ def download_file(bucket_name: str, source_blob_name: str, dest_filename: str, c
 
 def call_anthropic(local_image_file: str) -> str:
     """ placeholder for calling anthropic api """
-    assert local_image_file.endswith(('.jpg', '.jpeg')), "only jpg/jpeg images are supported"
+    assert local_image_file.endswith(('.jpg', '.jpeg', '.png')), "only jpg/jpeg images are supported"
     client = anthropic.Anthropic(
         api_key=A_API_KEY,
     )
@@ -101,6 +104,9 @@ def brave_search(query: str) -> dict:
     )
     return completions
 
+def main():
+    pass
+
 if __name__ == "__main__":
     # for testing purposes
     # set the environment variable GOOGLE_APPLICATION_CREDENTIALS
@@ -108,9 +114,27 @@ if __name__ == "__main__":
     # export GOOGLE_APPLICATION_CREDENTIALS="path/to/key.json"
     client = storage.Client()
     local_image_file = "local_image.jpg"
-    download_file("finteck-hackathon", "2025FlatironLounge00092_HERO.jpg", local_image_file, client)
+    "0c803398-processed-images/chair"
+    download_file(DEFAULT_BUCKET, DEFAULT_IMAGE, local_image_file, client)
     stuff = call_anthropic(local_image_file)
     results = process_json_response(stuff)
     # now do something with the results, search via brave search api
     query = results.get("query")
+    print(results)
     serp = brave_search(query)
+    ## now we need to parse the serp and the results and add them together into an output json
+    # here we just print the serp for now, we need to iterate on prompt for output structure
+    print(serp)
+    # results["sources"].extend(serp) if serp is not None else []
+    output = json.loads(open("./json_schemata/rev_ground.json", "r").read())
+    # now we need to merge results into output
+    estimated_prices = [source.get("lowPrice", 0) for source in results.get("sources", []) if source.get("lowPrice") is not None]
+    estimated_prices.extend([source.get("highPrice", 0) for source in results.get("sources", []) if source.get("highPrice") is not None])
+    output["name"] = results.get("name", "unknown")
+    output["condition"] = results.get("condition", "unknown")
+    output["marketvalue"] = sum(estimated_prices) / len(estimated_prices) if len(estimated_prices) > 0 else -1
+    output["image"] = DEFAULT_BUCKET + "/" + DEFAULT_IMAGE
+    output["sources"] = results.get("sources", [])
+    output["query"] = results.get("query", "unknown")
+    output["reasoning"] = results.get("reasoning", "unknown")
+    # the case of the qeury seems changed from `query` but whatever...
