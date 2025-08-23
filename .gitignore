@@ -57,3 +57,6 @@ Thumbs.db
 # GCP
 *.json
 !terraform.tfvars.example
+
+# Firefox Profiles
+computer-use/*.default-esr128
