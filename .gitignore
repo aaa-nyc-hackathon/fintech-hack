@@ -59,3 +59,8 @@ Thumbs.db
 *.json
 !terraform.tfvars.example
 
+<<<<<<< HEAD
+# Firefox Profiles
+computer-use/*.default-esr128
+=======
+>>>>>>> origin/main
