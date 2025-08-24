@@ -10,6 +10,9 @@ The estimated value is the average of the upper and lower bound price estimates 
 Clicking through the `price analysis` button on each item on the right hand pane provides backlinks
 to the sources.
 
+<img width="1450" height="690" alt="valueSpotter" src="https://github.com/user-attachments/assets/75ad5b47-7507-48a8-b78b-c841a249a511" />
+
+
 ## Features
 
 - **Video Length Extraction**: Get video duration using FFmpeg (primary) and OpenCV (fallback)
