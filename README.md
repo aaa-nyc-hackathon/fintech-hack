@@ -2,15 +2,23 @@
 
 A GCP Cloud Run service that extracts video length from videos stored in Google Cloud Storage using Python, FFmpeg, and OpenCV.
 
-The client application presents a display of the items extracted from the video.
-The items are fed through to Anthropic and to Brave for valuations.
-The sources/groundings from the calls provide upper and lower bounds for price estimates.
-A quality/condition for the item is also provided.
-The estimated value is the average of the upper and lower bound price estimates across all sources.
-Clicking through the `price analysis` button on each item on the right hand pane provides backlinks
+- The client application presents a display of the items extracted from the video.
+- The items are fed through to Anthropic and to Brave for valuations.
+- The sources/groundings from the calls provide upper and lower bounds for price estimates.
+- A quality/condition for the item is also provided.
+- The estimated value is the average of the upper and lower bound price estimates across all sources.
+- Clicking through the `price analysis` button on each item on the right hand pane provides backlinks
 to the sources.
 
 <img width="1450" height="690" alt="valueSpotter" src="https://github.com/user-attachments/assets/75ad5b47-7507-48a8-b78b-c841a249a511" />
+
+Price analysis button
+
+<img width="308" height="162" alt="priceAnalysis" src="https://github.com/user-attachments/assets/c8f7cda5-3c9a-4855-92d5-aab6dcdee5dc" />
+
+Analysis result with  backlinks details
+
+<img width="415" height="626" alt="PriceAnalysisDetails" src="https://github.com/user-attachments/assets/059fe56a-41d6-48e7-ace6-f6b3d10462fa" />
 
 
 ## Features
