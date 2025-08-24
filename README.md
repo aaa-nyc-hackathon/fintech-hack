@@ -18,7 +18,7 @@ Price analysis button
 
 Analysis result with  backlinks details
 
-<img width="415" height="626" alt="PriceAnalysisDetails" src="https://github.com/user-attachments/assets/059fe56a-41d6-48e7-ace6-f6b3d10462fa" />
+<img width="400" height="607" alt="PriceAnalysisDetails" src="https://github.com/user-attachments/assets/6c62b4da-3853-4766-a955-c7bbaeaa8c7f" />
 
 
 ## Features
