@@ -27,7 +27,8 @@ import { upsertItem, upsertVideo, downloadCSV, getStorageStats } from "@/utils/d
 // GCS upload integration
 
 
-import { MoreVertical } from "lucide-react"
+// import { MoreVertical } from "lucide-react"
+import { Eye, EyeOff } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -884,7 +885,7 @@ async function callVideoAnalysisAPI(gcsUri: string) {
     setVideos((prev) => [...prev, meta]);
     setCurrentVideoId(id);
     setVideoUrl(url);
-    setShowUpload(false);
+    setShowUpload(true);
     
     // Save video to data storage
     upsertVideo(meta);
@@ -1140,7 +1141,7 @@ async function callVideoAnalysisAPI(gcsUri: string) {
                   <path d="M10 6v8M6 10h8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
                 </svg>
               </button>
-              <DropdownMenu>
+              {/* <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button className="rounded-full p-2 hover:bg-gray-100 border shadow-[0_2px_8px_0_rgba(128,128,128,0.12)] bg-white">
                     <MoreVertical className="h-5 w-5" />
@@ -1151,7 +1152,29 @@ async function callVideoAnalysisAPI(gcsUri: string) {
                     {showUpload ? "Hide upload section" : "Show upload section"}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
+              </DropdownMenu> */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    className="rounded-full p-2 hover:bg-gray-100 border shadow-[0_2px_8px_0_rgba(128,128,128,0.12)] bg-white"
+                    aria-label="Options"
+                    title="Options"
+                  >
+                    {showUpload ? (
+                      <Eye className="h-5 w-5" />
+                    ) : (
+                      <EyeOff className="h-5 w-5" />
+                    )}
+                  </button>
+                </DropdownMenuTrigger>
+
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => setShowUpload((s) => !s)}>
+                    {showUpload ? "Hide upload section" : "Show upload section"}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
               </DropdownMenu>
+
             </div>
 
             <form onSubmit={handleSearchSubmit} className="relative w-full md:max-w-sm md:ml-auto">
@@ -1187,7 +1210,7 @@ async function callVideoAnalysisAPI(gcsUri: string) {
           {/* Main content sections */}
           <div className={`flex gap-6 w-full h-full`}>
             {/* Left: Upload/VideoAnnotator & Capture Items */}
-            <div className={`transition-all duration-700 ease-in-out ${!showUpload ? 'w-[36px] min-w-[36px]' : 'w-2/3'}`}> 
+            {/* <div className={`transition-all duration-700 ease-in-out ${!showUpload ? 'w-[36px] min-w-[36px]' : 'w-2/3'}`}> 
               <div className={`relative bg-white rounded-3xl border p-6 shadow-sm h-full flex-1 transition-all duration-700 ease-in-out ${!showUpload ? 'w-[36px] p-6 flex flex-col items-center justify-center' : 'w-full'}`}>
                 <button
                   className="absolute -right-4 top-1/2 transform -translate-y-1/2 bg-white border rounded-full shadow-md p-1 flex items-center justify-center z-10"
@@ -1237,7 +1260,103 @@ async function callVideoAnalysisAPI(gcsUri: string) {
                   ) : null}
                 </div>
               </div>
-            </div>
+            </div> */}
+            {showUpload && (
+              <div
+                className={`transition-all duration-700 ease-in-out w-2/3`}
+              >
+                <div className="relative bg-white rounded-3xl border p-6 shadow-sm h-full flex-1 transition-all duration-700 ease-in-out w-full">
+                  <button
+                    className="absolute -right-4 top-1/2 transform -translate-y-1/2 bg-white border rounded-full shadow-md p-1 flex items-center justify-center z-10"
+                    style={{ width: 32, height: 32 }}
+                    onClick={() => setShowUpload(false)}
+                    aria-label="Collapse"
+                  >
+                    <span className="transition-transform duration-300">
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 16 16"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                        style={{ transform: 'rotate(90deg)' }}
+                      >
+                        <path
+                          d="M4 6l4 4 4-4"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    </span>
+                  </button>
+
+                  {videoUrl ? (
+                    <VideoAnnotator
+                      key={currentVideoId}
+                      src={videoUrl}
+                      onCapture={(a) => {
+                        console.log('📸 Captured annotation:', a);
+                      }}
+                      onSaveAll={handleAnnotationsSaveAll}
+                      className="mt-4"
+                    />
+                  ) : (
+                    <div className="mb-6">
+                      <div
+                        onDragOver={(e) => e.preventDefault()}
+                        onDrop={onDrop}
+                        className="rounded-3xl border-2 border-dashed p-8 text-center bg-white hover:bg-gray-50 transition"
+                      >
+                        <div className="mx-auto h-14 w-14 rounded-2xl bg-gray-100 flex items-center justify-center mb-3">
+                          <Upload />
+                        </div>
+                        <div className="text-lg font-medium">Drop a video here</div>
+                        <div className="text-neutral-400 text-sm mb-4 tracking-wide">
+                          or click to choose a file
+                        </div>
+                        <button
+                          onClick={() => fileInputRef.current?.click()}
+                          className="inline-flex items-center gap-2 rounded-2xl border px-4 py-2 bg-white hover:bg-gray-50"
+                        >
+                          <Video size={18} /> Select video
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {!showUpload && (
+              <button
+                className="bg-white border rounded-full shadow-md p-1 flex items-center justify-center"
+                style={{ width: 32, height: 32 }}
+                onClick={() => setShowUpload(true)}
+                aria-label="Expand"
+              >
+                <span className="rotate-180">
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                    style={{ transform: 'rotate(90deg)' }}
+                  >
+                    <path
+                      d="M4 6l4 4 4-4"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </span>
+              </button>
+            )}
+
             {/* Right: Vertical List Items */}
             <div className={`transition-all duration-700 ease-in-out flex-1 ${!showUpload ? 'w-full' : 'w-1/3'}`}> 
               <div className="bg-white rounded-3xl border p-6 shadow-sm h-full flex flex-col">
