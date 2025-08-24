@@ -17,11 +17,15 @@ def valuation_function(request):
         # header and caches preflight response for an 3600s
         headers = {
             "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "GET, POST",
+            "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
             "Access-Control-Allow-Headers": "Content-Type",
             "Access-Control-Max-Age": "3600",
         }
         return ("", 204, headers)
+    
+    print(">>>>>>>scott")
+    print(request.json)
+    print(request)
 
     # Set CORS headers for the main request
     headers = {"Access-Control-Allow-Origin": "*"}
