@@ -15,13 +15,31 @@ import anthropic
 import base64
 import json
 
+from pydantic import BaseModel, Field
+
+
 
 SEARCH_PROMPT = "Formulate a search query of what is in the above image so that I can search it on the web. Give me prices for similar items on the web."
-
 OUTPUT_FILE = "Analyze this feedback and output in JSON format with search query: \“query\” and reasoning: \“reasoning\". The JSON schema is as follows: {\"name\": \"string\", \"condition\": \"string\", \"marketvalue\": number, \"image\": \"string\", \"sources\": [{\"title\": \"string\", \"url\": \"string\", \"snippet\": \"string\", \"lowPrice\": \"int\", \"highPrice\": \"int\"}]}. Ensure the output is valid JSON."
 
 DEFAULT_BUCKET = "finteck-hackathon"
 DEFAULT_IMAGE = "2025FlatironLounge00092_HERO.jpg"
+
+class ValuationSource(BaseModel):
+    """Schema for a valuation source/article"""
+    title: str = Field(description="The title or headline of the source article or reference")
+    url: str = Field(description="The URL link to the source article or reference")
+    snippet: str = Field(description="A brief excerpt or summary from the source article")
+
+
+class ValuationResponse(BaseModel):
+    """Schema for the valuation response containing item details and market analysis"""
+    name: str = Field(description="The name or description of the item being valued")
+    condition: str = Field(description="The condition of the item (e.g., 'like new', 'good', 'fair', 'poor')")
+    marketvalue: int = Field(description="The estimated market value of the item in dollars")
+    image: str = Field(description="URL or path to an image of the item (empty string if no image available)")
+    sources: list[ValuationSource] = Field(description="List of sources and references used for the valuation")
+    query: str = Field(description="The original query or question that prompted this valuation")
 
 from dotenv import load_dotenv
 
@@ -104,24 +122,19 @@ def brave_search(query: str) -> dict:
           "content": query,
         }
       ],
+      response_format={"type": "json_object", "schema": ValuationResponse.model_json_schema()},
       model="brave",
       stream=False,
     )
     return completions
 
-def main():
-    pass
 
 if __name__ == "__main__":
-    # for testing purposes
-    # set the environment variable GOOGLE_APPLICATION_CREDENTIALS
-    # to the path of the service account key file
-    # export GOOGLE_APPLICATION_CREDENTIALS="path/to/key.json"
     client = storage.Client()
-    # add the file extension to the dest filename # note the extension will be added based on the file downloaded
-    # cloud_image_file = "0c803398-processed-images/chair/frame_000000_object_000.png"
+    # cloud_image_file = "0c803398-processed-images/potted plant/frame_000004_object_004.png"
+    cloud_image_file = "0c803398-processed-images/chair/frame_000000_object_000.png"
     # NOTE: gcloud handles url encoding
-    cloud_image_file = "0c803398-processed-images/potted plant/frame_000004_object_004.png"
+    #cloud_image_file = "0c803398-processed-images/potted plant/frame_000004_object_004.png"
     source_file_extension = cloud_image_file.split('.')[-1] # get the file extension
     local_image_file = "local_image"  + '.' + source_file_extension
     # DEFAULT_IMAGE
@@ -138,8 +151,6 @@ if __name__ == "__main__":
             print(f"Error calling Brave Search API: {e}")
             serp = None
         print(serp)
-        ## now we need to parse the serp and the results and add them together into an output json
-        # here we just print the serp for now, we need to iterate on prompt for output structure
     # results["sources"].extend(serp) if serp is not None else []
     output = json.loads(open("./json_schemata/rev_ground.json", "r").read())
     # now we need to merge results into output
@@ -152,4 +163,6 @@ if __name__ == "__main__":
     output["sources"] = results.get("sources", [])
     output["query"] = results.get("query", "unknown")
     output["reasoning"] = results.get("reasoning", "unknown")
-    # the case of the qeury seems changed from `query` but whatever...
+    
+    # scratch code to format the serp
+    # print(serp.choices[0].message.content)
