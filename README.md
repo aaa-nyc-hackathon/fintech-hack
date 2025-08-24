@@ -20,7 +20,6 @@ Analysis result with  backlinks details
 
 <img width="400" height="607" alt="PriceAnalysisDetails" src="https://github.com/user-attachments/assets/6c62b4da-3853-4766-a955-c7bbaeaa8c7f" />
 
-
 ## Features
 
 - **Video Length Extraction**: Get video duration using FFmpeg (primary) and OpenCV (fallback)
@@ -100,6 +99,7 @@ docker push ${REGION}-docker.pkg.dev/${PROJECT_ID}/${ARTIFACT_REGISTRY}/video-le
 
 ### 4. Test the API
 
+#### 4a. Video Upload input/output
 ```bash
 # Get the API Gateway URL and API key
 API_URL=$(terraform output -raw api_gateway_url)
@@ -112,6 +112,15 @@ curl -X POST "${API_URL}/analyze_video" \
   -d '{
     "video_uri": "gs://your-bucket/your-video.mp4"
   }'
+```
+
+#### 4b. Image input/output
+
+# Test the endpoint
+```bash
+ curl -X POST "https://<cloudfunctions>/valuation-research-function" -H "Content-Type: application/json"
+ -d '{"gcs_uri": "gs://finteck-hackathon/0c803398-processed-images/chair/frame_000004_object_001.png",
+"api_key":"gsafd854fasdfasdf8848674fjf74bfgr0wnfnd"}' | jq 
 ```
 
 ## API Reference
