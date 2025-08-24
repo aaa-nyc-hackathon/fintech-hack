@@ -16,6 +16,8 @@ import { classNames, toCurrency, toCSV, download } from "@/utils/helpers";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Button } from "@/components/ui/button";
 import { SideNav } from "@/components/side-nav";
+import VideoAnnotator from "@/components/VideoAnnotator";
+import SegmentGrid from "@/components/SegmentGrid";
 
 import { MoreVertical } from "lucide-react"
 import {
@@ -31,11 +33,12 @@ import {
 // ------------------------------------------------------------
 
 export default function DashboardPage() {
-  const [videos, setVideos] = useState<VideoMeta[]>(mockVideos);
+  const [videos, setVideos] = useState<VideoMeta[]>([]);
   const [items, setItems] = useState<Item[]>(mockItems);
-  const [currentVideoId, setCurrentVideoId] = useState<string>(videos[0]?.id ?? "");
+  const [currentVideoId, setCurrentVideoId] = useState<string>("");
   const [search, setSearch] = useState("");
   const [showUpload, setShowUpload] = useState(true);
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
 
   // Profile mock
   const [profile] = useState({ name: "Chaira Harder", email: "chaira@example.com" });
@@ -92,12 +95,25 @@ export default function DashboardPage() {
   );
 
   const addVideo = (file: File) => {
-    const id = `v${Date.now()}`;
-    const meta: VideoMeta = { id, name: file.name.replace(/\.[^/.]+$/, ""), fileName: file.name, createdAt: new Date().toISOString() };
-    setVideos((v) => [...v, meta]);
+    const id = `v_${Date.now()}`;
+    const url = URL.createObjectURL(file);
+    const meta: VideoMeta = {
+      id,
+      name: file.name.replace(/\.[^/.]+$/, ""),
+      fileName: file.name,
+      createdAt: new Date().toISOString(),
+      url,
+    };
+    setVideos((prev) => [...prev, meta]);
     setCurrentVideoId(id);
-    // In your real pipeline, kick off frame extraction+pricing here and set items accordingly.
+    setVideoUrl(url);
+    setShowUpload(false);
   };
+
+  React.useEffect(() => {
+    const v = videos.find((x) => x.id === currentVideoId);
+    setVideoUrl(v?.url ?? null);
+  }, [currentVideoId, videos]);
 
   const clearAllData = () => {
     if (!confirm("This will clear ALL items and videos. Continue?")) return;
@@ -160,22 +176,6 @@ export default function DashboardPage() {
 
           {/* Controls */}
           <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3 md:gap-4 mb-5">
-            {/* <div className="flex items-center gap-2">
-              <label className="text-sm text-gray-600">Video:</label>
-              <select
-                value={currentVideoId}
-                onChange={(e) => setCurrentVideoId(e.target.value)}
-                className="rounded-xl border bg-white px-3 py-2"
-              >
-                {videos.length === 0 && <option value="">No videos</option>}
-                {videos.map((v) => (
-                  <option key={v.id} value={v.id}>
-                    {v.name}
-                  </option>
-                ))}
-              </select>
-            </div> */}
-
             <div className="flex items-center gap-2">
               <label className="text-sm text-gray-600">Video:</label>
               <Select value={currentVideoId} onValueChange={(v) => setCurrentVideoId(v)}>
@@ -183,9 +183,7 @@ export default function DashboardPage() {
                   <SelectValue placeholder="Select a video" />
                 </SelectTrigger>
                 <SelectContent>
-                  {videos.length === 0 && (
-                    <SelectItem value="">No videos</SelectItem>
-                  )}
+                  {/* Do not render SelectItem with empty value, as it causes a runtime error */}
                   {videos.map((v) => (
                     <SelectItem key={v.id} value={v.id}>
                       {v.name}
@@ -195,18 +193,30 @@ export default function DashboardPage() {
               </Select>
             </div>
 
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button className="rounded-full p-2 hover:bg-gray-100 border">
-                  <MoreVertical className="h-5 w-5" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => setShowUpload((s) => !s)}>
-                  {showUpload ? "Hide upload section" : "Show upload section"}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <div className="flex items-center gap-2">
+              <button
+                className="rounded-full p-2 hover:bg-gray-100 border"
+                title="Add new video"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <circle cx="10" cy="10" r="9" stroke="currentColor" strokeWidth="2" fill="none" />
+                  <path d="M10 6v8M6 10h8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                </svg>
+              </button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="rounded-full p-2 hover:bg-gray-100 border">
+                    <MoreVertical className="h-5 w-5" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => setShowUpload((s) => !s)}>
+                    {showUpload ? "Hide upload section" : "Show upload section"}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
 
             <div className="relative w-full md:max-w-sm md:ml-auto">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2" size={18} />
@@ -219,37 +229,56 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Upload section */}
-          {showUpload && (
-            <div className="mb-6">
-              <div
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={onDrop}
-                className="rounded-3xl border-2 border-dashed p-8 text-center bg-white hover:bg-gray-50 transition"
-              >
-                <div className="mx-auto h-14 w-14 rounded-2xl bg-gray-100 flex items-center justify-center mb-3">
-                  <Upload />
-                </div>
-                <div className="text-lg font-medium">Drop a video here</div>
-                <div className="text-gray-500 text-sm mb-4">or click to choose a file</div>
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="inline-flex items-center gap-2 rounded-2xl border px-4 py-2 bg-white hover:bg-gray-50"
+          {/* Persistent file input for uploads */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="video/*"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) addVideo(file);
+            }}
+          />
+
+          {/* Upload section or VideoAnnotator */}
+          {videoUrl ? (
+            <VideoAnnotator
+              key={currentVideoId}
+              src={videoUrl}
+              onCapture={(a) => {
+                // Send to backend (example)
+                fetch("/api/items", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify(a),
+                });
+                // Or convert to your Item type and insert into $, $$, $$$ lists
+              }}
+              className="mt-4"
+            />
+          ) : (
+            showUpload && (
+              <div className="mb-6">
+                <div
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={onDrop}
+                  className="rounded-3xl border-2 border-dashed p-8 text-center bg-white hover:bg-gray-50 transition"
                 >
-                  <Video size={18} /> Select video
-                </button>
-                <input
-                  type="file"
-                  accept="video/*"
-                  className="hidden"
-                  ref={fileInputRef}
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) addVideo(file);
-                  }}
-                />
+                  <div className="mx-auto h-14 w-14 rounded-2xl bg-gray-100 flex items-center justify-center mb-3">
+                    <Upload />
+                  </div>
+                  <div className="text-lg font-medium">Drop a video here</div>
+                  <div className="text-gray-500 text-sm mb-4">or click to choose a file</div>
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="inline-flex items-center gap-2 rounded-2xl border px-4 py-2 bg-white hover:bg-gray-50"
+                  >
+                    <Video size={18} /> Select video
+                  </button>
+                </div>
               </div>
-            </div>
+            )
           )}
 
           {/* Lists */}
@@ -271,6 +300,11 @@ export default function DashboardPage() {
               </div>
             ))}
           </div>
+
+          {/* SegmentGrid -- TODO: DELETE AFTER, THIS IS JUST TO TEST*/}
+          {/* <SegmentGrid /> */}
+          {/* <img src="https://storage.googleapis.com/finteck-hackathon/0c803398-processed-images/chair/frame_000000_object_000.png" alt="description" /> */}
+
         </main>
       </div>
     </div>

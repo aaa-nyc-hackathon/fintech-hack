@@ -16,7 +16,7 @@ interface ProfileModalProps {
 
 export default function ProfileModal({ profile, stats, onLogout, onClearAllData }: ProfileModalProps) {
   return (
-    <div className="absolute right-0 mt-2 w-[480px] min-h-[420px] rounded-2xl border bg-white shadow-lg p-6 z-10">
+  <div className="absolute right-0 mt-2 w-[480px] min-h-[420px] rounded-2xl border bg-white shadow-lg p-6 z-10">
       <div className="flex items-start justify-between">
         <div>
           <div className="font-semibold">{profile.name}</div>

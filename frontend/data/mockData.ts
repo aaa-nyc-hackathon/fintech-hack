@@ -14,6 +14,7 @@ export type VideoMeta = {
   name: string;
   fileName?: string;
   createdAt: string;
+  url?: string;
 };
 
 export const mockVideos: VideoMeta[] = [
