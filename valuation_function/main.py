@@ -23,7 +23,7 @@ def valuation_function(request):
         }
         return ("", 204, headers)
     
-    print(">>>>>>>scott")
+    print(">>>>>>>request info for debugging DELETE LATER...")
     print(request.json)
     print(request)
 
