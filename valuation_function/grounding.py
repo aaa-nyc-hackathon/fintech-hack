@@ -41,9 +41,6 @@ class ValuationResponse(BaseModel):
     sources: list[ValuationSource] = Field(description="List of sources and references used for the valuation")
     query: str = Field(description="The original query or question that prompted this valuation")
 
-from dotenv import load_dotenv
-
-load_dotenv()
 
 A_API_KEY = os.getenv("A_API_KEY")
 BRAVE_SEARCH_API_KEY = os.getenv("BRAVE_SEARCH_API_KEY")
