@@ -22,8 +22,9 @@ def valuation_function(request):
             "Access-Control-Max-Age": "3600",
         }
         return ("", 204, headers)
-    
-    print(">>>>>>>request info for debugging DELETE LATER...")
+    # NOTE: gcloud functions log automatically the stdout and stderr
+    # so we use print for logging
+    print(">>>>>>>request info for debugging TODO DELETE LATER...")
     print(request.json)
     print(request)
 
