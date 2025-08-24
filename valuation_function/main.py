@@ -31,10 +31,11 @@ def valuation_function(request):
         print(f"Processing valuation request for: {gcs_uri}")
 
         # handle all the stuff...
-
     except Exception as e:
         print(f"An unexpected error occurred in the valuation function: {str(e)!r}")
         error_details = {
             "error_message": str(e)
         }
-        return (json.dumps(error_details), 500, {'Content-Type': 'application/json'}) 
+        return (json.dumps(error_details), 500, {'Content-Type': 'application/json'})
+    # regular return
+    return ("Hello", 200)
