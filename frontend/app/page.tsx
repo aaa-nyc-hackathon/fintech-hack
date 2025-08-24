@@ -1022,7 +1022,8 @@ async function callVideoAnalysisAPI(gcsUri: string) {
   };
 
   return (
-  <div className="min-h-screen bg-gray-50 text-gray-900 flex font-sans p-6">
+  // <div className="min-h-screen bg-gray-50 text-gray-900 flex font-sans p-6">
+  <div className="min-h-screen w-full bg-gray-50 text-gray-900 font-sans flex">
       {/* SideNav: always fixed width, always visible, full height */}
       <div className={`fixed left-0 top-0 h-screen ${collapsed ? 'w-[72px]' : 'w-[260px]'} transition-all duration-300 bg-white border-r border-gray-200 flex-shrink-0 z-30`}>
         <SideNav
@@ -1033,7 +1034,12 @@ async function callVideoAnalysisAPI(gcsUri: string) {
         />
       </div>
       {/* Main dashboard content: scrollable, with left margin for nav */}
-  <main className={`flex-1 p-4 md:p-8 ml-[72px] ${!collapsed ? 'md:ml-[260px]' : ''}`}>
+  {/* <main className={`flex-1 p-4 md:p-8 ml-[72px] ${!collapsed ? 'md:ml-[260px]' : ''}`}> */}
+  <main
+    className={`flex-1 min-h-screen p-4 md:p-8 ml-[72px] ${
+      !collapsed ? "md:ml-[260px]" : ""
+    }`}
+  >
           {/* Top bar */}
           <div className="flex items-center justify-between gap-6 mb-6">
             <div>
