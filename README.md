@@ -2,6 +2,14 @@
 
 A GCP Cloud Run service that extracts video length from videos stored in Google Cloud Storage using Python, FFmpeg, and OpenCV.
 
+The client application presents a display of the items extracted from the video.
+The items are fed through to Anthropic and to Brave for valuations.
+The sources/groundings from the calls provide upper and lower bounds for price estimates.
+A quality/condition for the item is also provided.
+The estimated value is the average of the upper and lower bound price estimates across all sources.
+Clicking through the `price analysis` button on each item on the right hand pane provides backlinks
+to the sources.
+
 ## Features
 
 - **Video Length Extraction**: Get video duration using FFmpeg (primary) and OpenCV (fallback)
