@@ -1,4 +1,4 @@
-"use client";
+"use client"
 
 import * as React from "react";
 import { Download, FileSpreadsheet, Trash2 } from "lucide-react";
@@ -25,7 +25,7 @@ export function SideNav({
   return (
     <aside
       className={cn(
-        "w-full transition-all duration-350",
+        "w-full transition-all duration-350 font-sans",
         collapsed ? "min-w-[72px]" : "min-w-[260px]",
         "md:h-screen md:sticky md:top-0 border-r bg-white p-3 md:p-4 flex flex-col"
       )}
