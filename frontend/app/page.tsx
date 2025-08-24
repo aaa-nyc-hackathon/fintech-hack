@@ -1131,16 +1131,26 @@ async function callVideoAnalysisAPI(gcsUri: string) {
             </div>
 
             <div className="flex items-center gap-2">
-              <button
-                className="rounded-full p-2 hover:bg-gray-100 border shadow-[0_2px_8px_0_rgba(128,128,128,0.12)] bg-white"
-                title="Add new video"
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
                 onClick={() => fileInputRef.current?.click()}
+                title="Add new video"
+                className="rounded-full shadow-[0_2px_8px_0_rgba(128,128,128,0.12)] bg-white hover:bg-gray-100"
               >
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 20 20"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
                   <circle cx="10" cy="10" r="9" stroke="currentColor" strokeWidth="2" fill="none" />
                   <path d="M10 6v8M6 10h8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
                 </svg>
-              </button>
+                <span className="sr-only">Add new video</span>
+              </Button>
               {/* <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button className="rounded-full p-2 hover:bg-gray-100 border shadow-[0_2px_8px_0_rgba(128,128,128,0.12)] bg-white">
@@ -1153,7 +1163,7 @@ async function callVideoAnalysisAPI(gcsUri: string) {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu> */}
-              <DropdownMenu>
+              {/* <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button
                     className="rounded-full p-2 hover:bg-gray-100 border shadow-[0_2px_8px_0_rgba(128,128,128,0.12)] bg-white"
@@ -1173,7 +1183,26 @@ async function callVideoAnalysisAPI(gcsUri: string) {
                     {showUpload ? "Hide upload section" : "Show upload section"}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
-              </DropdownMenu>
+              </DropdownMenu> */}
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={() => setShowUpload((s) => !s)}
+                aria-pressed={showUpload}
+                className="rounded-full shadow-[0_4px_8px_0_rgba(0,0,0,0.2)] hover:shadow-[0_6px_12px_0_rgba(0,0,0,0.25)] transition-shadow"
+              >
+                {showUpload ? (
+                  <Eye className="h-5 w-5" />
+                ) : (
+                  <EyeOff className="h-5 w-5" />
+                )}
+                <span className="sr-only">
+                  {showUpload ? "Hide upload section" : "Show upload section"}
+                </span>
+              </Button>
+
+
 
             </div>
 

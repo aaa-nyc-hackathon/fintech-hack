@@ -32,7 +32,14 @@ export function SideNav({
       {/* Header / brand + collapse button */}
       <div className={cn("flex items-center mb-6", collapsed ? "justify-center" : "justify-between")}> 
         {!collapsed && (
-          <div className="pt-1 text-2xl font-bold leading-tight">ValueSpotter</div>
+          <div className="flex items-center gap-2 pt-1">
+          <img 
+            src="https://storage.googleapis.com/finteck-hackathon/hackathon_logo.png" 
+            alt="ValueSpotter Logo" 
+            className="h-8 w-8"
+          />
+          <span className="text-2xl font-bold leading-tight">ValueSpotter</span>
+        </div>
         )}
         <Button
           variant="outline"
