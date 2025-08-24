@@ -6,8 +6,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
 type SideNavProps = {
-  onExportCSV: () => void;
-  onExportGoogleSheets: () => void;
+  onExportAllData: () => void;
   onClearAllData: () => void;
   collapsed?: boolean;
   onToggle?: () => void;
@@ -15,8 +14,7 @@ type SideNavProps = {
 };
 
 export function SideNav({
-  onExportCSV,
-  onExportGoogleSheets,
+  onExportAllData,
   onClearAllData,
   collapsed = false,
   onToggle,
@@ -61,14 +59,8 @@ export function SideNav({
       <nav className="space-y-1 flex-1">
         <SideNavItem
           icon={<Download className="h-4 w-4" />}
-          label="Export to CSV"
-          onClick={onExportCSV}
-          collapsed={collapsed}
-        />
-        <SideNavItem
-          icon={<FileSpreadsheet className="h-4 w-4" />} 
-          label="Export to Google Sheets"
-          onClick={onExportGoogleSheets}
+          label="Export All Data"
+          onClick={onExportAllData}
           collapsed={collapsed}
         />
       </nav>

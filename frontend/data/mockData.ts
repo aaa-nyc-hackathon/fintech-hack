@@ -1,4 +1,22 @@
 export type Source = { label: string; url: string };
+
+// Valuation data structure matching the backend response
+export type ValuationSource = {
+  title: string;
+  url: string;
+  snippet: string;
+};
+
+export type ValuationData = {
+  name: string;
+  condition: string;
+  marketvalue: number;
+  image: string;
+  sources: ValuationSource[];
+  query: string;
+  reasoning?: string; // AI reasoning for the valuation
+};
+
 export type Item = {
   id: string;
   name: string;
@@ -9,6 +27,7 @@ export type Item = {
   category: "$" | "$$" | "$$$";
   videoId: string;
   isAnalyzing?: boolean; // Optional flag to track analysis status
+  valuationData?: ValuationData; // Full valuation response data
 };
 export type VideoMeta = {
   id: string;

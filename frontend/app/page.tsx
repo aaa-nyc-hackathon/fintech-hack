@@ -6,7 +6,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Download, FileSpreadsheet, Search, Upload, Video, ChevronDown, LogOut, User2, Trash2 } from "lucide-react";
+import { Download, FileSpreadsheet, Search, Upload, Video, ChevronDown, LogOut, User2, Trash2, CheckCircle, AlertCircle, X, Clock } from "lucide-react";
 import { VideoMeta, Item } from "@/data/mockData";
 import ProfileModal from "@/components/ProfileModal";
 import { ModeToggle } from "@/components/ModeToggle";
@@ -17,6 +17,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { SideNav } from "@/components/side-nav";
 import VideoAnnotator, { Annotation } from "@/components/VideoAnnotator";
+import DeleteConfirmDialog from "@/components/DeleteConfirmDialog";
+import SearchPopup from "@/components/SearchPopup";
+import ProgressBar from "@/components/ProgressBar";
 import SegmentGrid from "@/components/SegmentGrid";
 import { uploadFileToGCS } from "@/utils/upload";
 import { upsertItem, upsertVideo, downloadCSV, getStorageStats } from "@/utils/dataStorage";
@@ -55,9 +58,212 @@ export default function DashboardPage() {
     });
   }, [items]);
   
+  // Load data from storage on component mount
+  useEffect(() => {
+    const loadStoredData = async () => {
+      try {
+        const { loadDataStorage } = await import('@/utils/dataStorage');
+        const storage = loadDataStorage();
+        
+        if (storage.items.length > 0) {
+          console.log('📊 Loading', storage.items.length, 'items from storage');
+          
+          // Convert storage items to UI items
+          const uiItems = storage.items.map(storedItem => ({
+            id: storedItem.id,
+            name: storedItem.name,
+            thumbnail: storedItem.publicUrl,
+            marketPrice: storedItem.marketPrice,
+            timestamp: storedItem.timestamp,
+            sources: [
+              { label: storedItem.source === "video_analysis" ? "AI Analysis" : "Manual Capture", url: "#" },
+              { label: "GCS Storage", url: storedItem.publicUrl }
+            ],
+            category: storedItem.category,
+            videoId: storedItem.videoId,
+            isAnalyzing: storedItem.isAnalyzing
+          }));
+          
+          setItems(uiItems);
+          console.log('✅ Loaded', uiItems.length, 'items from storage');
+        }
+        
+        if (storage.videos.length > 0) {
+          console.log('📹 Loading', storage.videos.length, 'videos from storage');
+          setVideos(storage.videos);
+          console.log('✅ Loaded', storage.videos.length, 'videos from storage');
+        }
+        
+      } catch (error) {
+        console.error('❌ Error loading data from storage:', error);
+      }
+    };
+    
+    loadStoredData();
+  }, []);
+  
   // Profile mock
   const [profile] = useState({ name: "Chaira Harder", email: "chaira@example.com" });
   const [profileOpen, setProfileOpen] = useState(false);
+  const [deleteDialog, setDeleteDialog] = useState<{
+    isOpen: boolean;
+    itemId: string;
+    itemName: string;
+    itemCategory: string;
+  }>({
+    isOpen: false,
+    itemId: "",
+    itemName: "",
+    itemCategory: "$"
+  });
+  
+  const [searchPopup, setSearchPopup] = useState<{
+    isOpen: boolean;
+    searchQuery: string;
+    searchResults: any[];
+  }>({
+    isOpen: false,
+    searchQuery: "",
+    searchResults: []
+  });
+  
+  const [progressBar, setProgressBar] = useState<{
+    isVisible: boolean;
+    progress: number;
+    status: 'uploading' | 'analyzing' | 'processing' | 'complete' | 'error';
+    currentStep?: string;
+    totalSteps?: number;
+    completedSteps?: number;
+  }>({
+    isVisible: false,
+    progress: 0,
+    status: 'uploading'
+  });
+
+  // Smooth progress increment state
+  const [smoothProgress, setSmoothProgress] = useState(0);
+  const smoothProgressRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Function to start smooth progress increment
+  const startSmoothProgress = (targetProgress: number, duration: number = 250) => {
+    // Clear any existing interval
+    if (smoothProgressRef.current) {
+      clearInterval(smoothProgressRef.current);
+    }
+    
+    const startProgress = smoothProgress;
+    const increment = 1; // 1% every interval
+    const interval = duration; // 250ms
+    
+    smoothProgressRef.current = setInterval(() => {
+      setSmoothProgress(prev => {
+        const newProgress = Math.min(prev + increment, targetProgress);
+        
+        // Update the main progress bar with smooth progress
+        setProgressBar(prev => ({ ...prev, progress: newProgress }));
+        
+        if (newProgress >= targetProgress) {
+          // Stop the interval when target is reached
+          if (smoothProgressRef.current) {
+            clearInterval(smoothProgressRef.current);
+            smoothProgressRef.current = null;
+          }
+        }
+        
+        return newProgress;
+      });
+    }, interval);
+  };
+
+  // Helper function to update progress bar and auto-hide when complete
+  const updateProgressBar = (updates: Partial<typeof progressBar>) => {
+    const newProgress = { ...progressBar, ...updates };
+    
+    // Auto-hide progress bar when complete, but keep status indicator visible
+    if (newProgress.progress >= 100) {
+      setTimeout(() => {
+        setProgressBar(prev => ({ ...prev, isVisible: false }));
+      }, 2000); // Hide after 2 seconds
+    }
+    
+    setProgressBar(newProgress);
+    
+    // Start smooth progress increment if progress is being set
+    if (updates.progress !== undefined) {
+      startSmoothProgress(updates.progress);
+    }
+  };
+  
+  // Function to toggle progress bar visibility
+  const toggleProgressBar = () => {
+    setProgressBar(prev => ({ ...prev, isVisible: !prev.isVisible }));
+  };
+  
+  // Cleanup smooth progress interval on unmount
+  useEffect(() => {
+    return () => {
+      if (smoothProgressRef.current) {
+        clearInterval(smoothProgressRef.current);
+      }
+    };
+  }, []);
+
+  // Monitor items status and update progress accordingly
+  useEffect(() => {
+    // Only monitor when we're in processing/analyzing phase
+    if (progressBar.progress >= 50 && progressBar.progress < 100) {
+      const analyzingItems = items.filter(item => item.isAnalyzing);
+      const totalItems = items.length;
+      
+      if (totalItems > 0) {
+        const completedItems = totalItems - analyzingItems.length;
+        const completionPercentage = Math.min(50 + (completedItems / totalItems) * 50, 100);
+        
+        // Update progress based on actual completion
+        if (completionPercentage !== progressBar.progress) {
+          setProgressBar(prev => ({
+            ...prev,
+            progress: completionPercentage,
+            currentStep: `Processed ${completedItems} of ${totalItems} items`
+          }));
+          
+          // Start smooth progress to new target
+          startSmoothProgress(completionPercentage);
+        }
+        
+        // Check if all items are complete
+        if (analyzingItems.length === 0 && totalItems > 0) {
+          // All items are done, set to complete
+          setProgressBar(prev => ({
+            ...prev,
+            status: 'complete' as const,
+            progress: 100,
+            currentStep: 'All items analyzed successfully'
+          }));
+          
+          // Start smooth progress to 100%
+          startSmoothProgress(100);
+        }
+      }
+    }
+  }, [items, progressBar.progress]);
+
+  // Keyboard support for closing popups
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (searchPopup.isOpen) {
+          setSearchPopup(prev => ({ ...prev, isOpen: false }));
+        }
+        if (deleteDialog.isOpen) {
+          setDeleteDialog(prev => ({ ...prev, isOpen: false }));
+        }
+      }
+    };
+    
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [searchPopup.isOpen, deleteDialog.isOpen]);
 
   const filtered = useMemo(() => {
     const byVid = items.filter((i) => i.videoId === currentVideoId);
@@ -127,14 +333,36 @@ export default function DashboardPage() {
 // Example handler for video upload
 async function handleVideoUpload(file: File) {
   try {
+    // Start progress bar
+    updateProgressBar({
+      isVisible: true,
+      progress: 0,
+      status: 'uploading',
+      currentStep: 'Uploading video to GCS...'
+    });
+    
     const result = await uploadFileToGCS(file);
     console.log('GCS URI:', result.gcsUri);
+    
+    // Update progress to 15% after upload
+    updateProgressBar({
+      progress: 15,
+      status: 'processing',
+      currentStep: 'Video uploaded, starting analysis...'
+    });
     
     // Now call the video analysis API with the GCS URI
     await callVideoAnalysisAPI(result.gcsUri);
     
   } catch (error) {
     console.error('Video upload failed:', error);
+    
+          // Update progress bar to show error
+      updateProgressBar({
+        status: 'error',
+        currentStep: 'Error occurred during upload',
+        progress: 100
+      });
   }
 }
 
@@ -161,6 +389,16 @@ function extractGCSUris(data: any): string[] {
 async function handleAnnotationsSaveAll(annotations: Annotation[]) {
   try {
     console.log('🚀 Processing', annotations.length, 'annotations through valuation pipeline');
+    
+    // Start progress bar for manual annotations
+    updateProgressBar({
+      isVisible: true,
+      progress: 0,
+      status: 'processing',
+      currentStep: `Processing ${annotations.length} manual annotations...`,
+      totalSteps: annotations.length,
+      completedSteps: 0
+    });
     
     // Create placeholder items for each annotation
     const placeholderItems: Item[] = [];
@@ -191,8 +429,21 @@ async function handleAnnotationsSaveAll(annotations: Annotation[]) {
     
     if (placeholderItems.length === 0) {
       console.log('⚠️ No valid annotations to process');
+      // Complete progress if no items to process
+      updateProgressBar({
+        progress: 100,
+        status: 'complete',
+        currentStep: 'No valid annotations to process',
+        completedSteps: 0
+      });
       return;
     }
+    
+    // Update progress to 10% after creating placeholders
+    updateProgressBar({
+      progress: 10,
+      currentStep: 'Created placeholder items, starting analysis...'
+    });
     
     // Add placeholder items to state immediately
     setItems(prev => {
@@ -231,6 +482,13 @@ async function handleAnnotationsSaveAll(annotations: Annotation[]) {
     
   } catch (error) {
     console.error('❌ Error processing annotations:', error);
+    
+    // Update progress bar to show error
+    updateProgressBar({
+      status: 'error',
+      currentStep: 'Error occurred during annotation processing',
+      progress: 100
+    });
   }
 }
 
@@ -339,16 +597,25 @@ async function processIndividualItem(gcsUri: string, itemId: string) {
     
     const valuationData = await callValuationAPI(gcsUri);
     
-    if (valuationData && valuationData.marketvalue) {
-      // Determine category based on market value
-      let category: "$" | "$$" | "$$$";
-      if (valuationData.marketvalue < 100) {
-        category = "$";
-      } else if (valuationData.marketvalue < 500) {
-        category = "$$";
-      } else {
-        category = "$$$";
-      }
+          if (valuationData && valuationData.marketvalue) {
+        // Debug: Log the valuation data to see URL structure
+        console.log('🔍 Valuation data received:', {
+          name: valuationData.name,
+          condition: valuationData.condition,
+          marketvalue: valuationData.marketvalue,
+          sources: valuationData.sources?.map((s: any) => ({ title: s.title, url: s.url, snippet: s.snippet })),
+          reasoning: valuationData.reasoning
+        });
+        
+        // Determine category based on market value
+        let category: "$" | "$$" | "$$$";
+        if (valuationData.marketvalue < 100) {
+          category = "$";
+        } else if (valuationData.marketvalue < 500) {
+          category = "$$";
+        } else {
+          category = "$$$";
+        }
       
       // Update the existing item with real data
       setItems(prev => {
@@ -359,7 +626,8 @@ async function processIndividualItem(gcsUri: string, itemId: string) {
                 name: valuationData.name || "Unknown Item",
                 marketPrice: valuationData.marketvalue,
                 category: category,
-                isAnalyzing: false
+                isAnalyzing: false,
+                valuationData: valuationData // Store the full valuation response
               }
             : item
         );
@@ -388,10 +656,37 @@ async function processIndividualItem(gcsUri: string, itemId: string) {
         publicUrl: gcsUri.replace('gs://', 'https://storage.googleapis.com/'),
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-        isAnalyzing: false
+        isAnalyzing: false,
+        valuationData: valuationData // Include the full valuation response
       });
       
       console.log('✅ Updated item:', valuationData.name, 'Category:', category, 'Price:', valuationData.marketvalue);
+      
+      // Update progress bar
+      updateProgressBar({
+        completedSteps: (progressBar.completedSteps || 0) + 1,
+        progress: Math.min(50 + ((progressBar.completedSteps || 0) + 1) * (50 / (progressBar.totalSteps || 1)), 100),
+        currentStep: `Processed ${(progressBar.completedSteps || 0) + 1} of ${progressBar.totalSteps} items`
+      });
+      
+      // Check if all items are complete and update status
+      setItems(prev => {
+        const allComplete = prev.every(item => !item.isAnalyzing);
+        if (allComplete) {
+          // All items are populated with data, stop pulsing and set to complete
+          setProgressBar(prev => ({
+            ...prev,
+            status: 'complete' as const,
+            progress: 100,
+            currentStep: 'All items analyzed successfully'
+          }));
+          
+          // Start smooth progress to 100%
+          startSmoothProgress(100);
+        }
+        return prev;
+      });
+      
     } else {
       // Handle case where valuation failed
       setItems(prev => prev.map(item => 
@@ -408,6 +703,28 @@ async function processIndividualItem(gcsUri: string, itemId: string) {
       // Force re-render to show failed item
       setForceUpdate(prev => prev + 1);
       console.log('❌ Valuation failed for item:', itemId);
+      
+      // Update progress bar even on failure
+      updateProgressBar({
+        completedSteps: (progressBar.completedSteps || 0) + 1,
+        progress: Math.min(50 + ((progressBar.completedSteps || 0) + 1) * (50 / (progressBar.totalSteps || 1)), 100),
+        currentStep: `Processed ${(progressBar.completedSteps || 0) + 1} of ${progressBar.totalSteps} items (with failures)`
+      });
+      
+      // Check if all items are complete and update status (even with failures)
+      setItems(prev => {
+        const allComplete = prev.every(item => !item.isAnalyzing);
+        if (allComplete) {
+          // All items are populated with data, stop pulsing and set to complete
+          setProgressBar(prev => ({
+            ...prev,
+            status: 'complete' as const,
+            progress: 100,
+            currentStep: 'All items analyzed successfully'
+          }));
+        }
+        return prev;
+      });
     }
     
   } catch (error) {
@@ -427,6 +744,28 @@ async function processIndividualItem(gcsUri: string, itemId: string) {
     ));
     // Force re-render to show error item
     setForceUpdate(prev => prev + 1);
+    
+    // Update progress bar even on error
+    updateProgressBar({
+      completedSteps: (progressBar.completedSteps || 0) + 1,
+      progress: Math.min(50 + ((progressBar.completedSteps || 0) + 1) * (50 / (progressBar.totalSteps || 1)), 100),
+      currentStep: `Processed ${(progressBar.completedSteps || 0) + 1} of ${progressBar.totalSteps} items (with errors)`
+    });
+    
+    // Check if all items are complete and update status (even with errors)
+    setItems(prev => {
+      const allComplete = prev.every(item => !item.isAnalyzing);
+      if (allComplete) {
+        // All items are populated with data, stop pulsing and set to complete
+        setProgressBar(prev => ({
+          ...prev,
+          status: 'complete' as const,
+          progress: 100,
+          currentStep: 'All items analyzed successfully'
+        }));
+      }
+      return prev;
+    });
   }
 }
 
@@ -440,6 +779,12 @@ async function callVideoAnalysisAPI(gcsUri: string) {
     console.log('🌐 API URL:', API_URL);
     console.log('🔑 API Key:', API_KEY ? 'Present' : 'Missing');
     console.log('📹 Video URI:', gcsUri);
+    
+    // Update progress to 15% when starting API call
+    updateProgressBar({
+      progress: 15,
+      currentStep: 'Calling video analysis API...'
+    });
     
     const response = await fetch(API_URL, {
       method: 'POST',
@@ -466,20 +811,51 @@ async function callVideoAnalysisAPI(gcsUri: string) {
       console.log('🔗 Extracted GCS URIs:', gcsUris);
       console.log('📊 Total objects found:', gcsUris.length);
       
+      // Update progress to 50% after initial analysis
+      updateProgressBar({
+        progress: 50,
+        status: 'analyzing',
+        currentStep: 'Initial analysis complete, processing individual items...',
+        totalSteps: gcsUris.length,
+        completedSteps: 0
+      });
+      
       // Process all GCS URIs and create items for the layout
       if (gcsUris.length > 0) {
         createPlaceholderItems(gcsUris);
+      } else {
+        // Complete progress if no items to process
+        updateProgressBar({
+          progress: 100,
+          status: 'complete',
+          currentStep: 'No items found to process',
+          completedSteps: 0
+        });
       }
       
     } else {
       const errorText = await response.text();
       console.error('❌ Video analysis API call failed:', response.status);
       console.error('❌ Error response:', errorText);
+      
+      // Update progress bar to show error
+      updateProgressBar({
+        status: 'error',
+        currentStep: 'Video analysis API failed',
+        progress: 100
+      });
     }
     
   } catch (error) {
     console.error('❌ Error calling video analysis API:', error);
     console.error('❌ Full error details:', error);
+    
+    // Update progress bar to show error
+    updateProgressBar({
+      status: 'error',
+      currentStep: 'Error occurred during analysis',
+      progress: 100
+    });
   }
 }
   const onDrop = useCallback(
@@ -544,6 +920,94 @@ async function callVideoAnalysisAPI(gcsUri: string) {
     });
     console.log('📊 Exported all data to CSV');
   };
+  
+  // Function to handle item deletion
+  const handleDeleteItem = (itemId: string) => {
+    // Find the item to get its details for the dialog
+    const item = items.find(i => i.id === itemId);
+    if (!item) return;
+    
+    // Open the delete confirmation dialog
+    setDeleteDialog({
+      isOpen: true,
+      itemId: itemId,
+      itemName: item.name,
+      itemCategory: item.category
+    });
+  };
+  
+  // Function to confirm deletion
+  const confirmDeleteItem = () => {
+    const { itemId } = deleteDialog;
+    console.log('🗑️ Deleting item:', itemId);
+    
+    // Remove from UI state
+    setItems(prev => prev.filter(item => item.id !== itemId));
+    
+    // Remove from data storage
+    import('@/utils/dataStorage').then(({ removeItem }) => {
+      removeItem(itemId);
+    });
+    
+    // Force re-render
+    setForceUpdate(prev => prev + 1);
+    
+    console.log('✅ Item deleted successfully');
+  };
+  
+  // Function to search through data store
+  const handleSearch = async (query: string) => {
+    if (!query.trim()) {
+      setSearchPopup(prev => ({ ...prev, isOpen: false }));
+      return;
+    }
+    
+    try {
+      const { loadDataStorage } = await import('@/utils/dataStorage');
+      const storage = loadDataStorage();
+      
+      // Search through all items
+      const results = storage.items.filter(item => {
+        const searchTerm = query.toLowerCase();
+        return (
+          item.name.toLowerCase().includes(searchTerm) ||
+          item.category.toLowerCase().includes(searchTerm) ||
+          item.videoId.toLowerCase().includes(searchTerm) ||
+          item.source.toLowerCase().includes(searchTerm) ||
+          item.timestamp.toLowerCase().includes(searchTerm) ||
+          item.gcsUri.toLowerCase().includes(searchTerm)
+        );
+      });
+      
+      console.log('🔍 Search results:', results.length, 'items found for query:', query);
+      
+      setSearchPopup({
+        isOpen: true,
+        searchQuery: query,
+        searchResults: results
+      });
+      
+    } catch (error) {
+      console.error('❌ Error searching data store:', error);
+    }
+  };
+  
+  // Function to handle search input changes
+  const handleSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const query = e.target.value;
+    setSearch(e.target.value);
+    
+    // If search is cleared, close popup
+    if (!query.trim()) {
+      setSearchPopup(prev => ({ ...prev, isOpen: false }));
+    }
+  };
+  
+  // Function to handle search submission
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    handleSearch(search);
+  };
 
   return (
   <div className="min-h-screen bg-gray-50 text-gray-900 flex font-sans p-6">
@@ -552,8 +1016,7 @@ async function callVideoAnalysisAPI(gcsUri: string) {
         <SideNav
           collapsed={collapsed}
           onToggle={() => setCollapsed((c) => !c)}
-          onExportCSV={onExportCSV}
-          onExportGoogleSheets={onExportGoogleSheets}
+          onExportAllData={onExportAllData}
           onClearAllData={clearAllData}
         />
       </div>
@@ -569,6 +1032,53 @@ async function callVideoAnalysisAPI(gcsUri: string) {
             {/* Profile dropdown and mode toggle */}
             <div className="flex items-center gap-2">
               {/* <ModeToggle /> */}
+              
+              {/* Upload Status Indicator */}
+              {smoothProgress > 0 && (
+                <div className="relative">
+                  <div className="inline-flex items-center gap-2 rounded-2xl border bg-white px-3 py-2 transition-all duration-300
+                    ${smoothProgress < 15 ? 'border-blue-200 bg-blue-50' :
+                      smoothProgress < 50 ? 'border-blue-200 bg-blue-50' :
+                      smoothProgress < 100 ? 'border-blue-200 bg-blue-50' :
+                      'border-green-200 bg-green-50'
+                    }">
+                    <button
+                      onClick={toggleProgressBar}
+                      className="inline-flex items-center gap-2 hover:opacity-80 transition-opacity"
+                      title={`Status: ${smoothProgress.toFixed(0)}% - Click to view details`}
+                    >
+                      {/* Pulsing dot - changes color based on progress */}
+                      <div className="relative">
+                        <div className={`w-2 h-2 rounded-full ${
+                          smoothProgress < 100 ? 'bg-blue-500 animate-ping' : 'bg-green-500'
+                        }`} />
+                      </div>
+                      
+                      {/* Status text based on progress percentage */}
+                      <span className="text-sm font-medium">
+                        {smoothProgress < 15 ? 'Uploading' :
+                         smoothProgress < 50 ? 'Processing' :
+                         smoothProgress < 100 ? 'Analyzing' :
+                         'Complete'}
+                      </span>
+                      
+                      <span className="text-xs text-gray-500">
+                        {smoothProgress.toFixed(0)}%
+                      </span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setProgressBar(prev => ({ ...prev, progress: 0, isVisible: false }));
+                      }}
+                      className="ml-1 p-1 hover:bg-gray-200 rounded-full transition-colors"
+                      title="Close status indicator"
+                    >
+                      <X className="h-3 w-3 text-gray-500 hover:text-gray-700" />
+                    </button>
+                  </div>
+                </div>
+              )}
+              
               <div className="relative">
                 <Button
                   onClick={() => setProfileOpen((o) => !o)}
@@ -644,15 +1154,21 @@ async function callVideoAnalysisAPI(gcsUri: string) {
               </DropdownMenu>
             </div>
 
-            <div className="relative w-full md:max-w-sm md:ml-auto">
+            <form onSubmit={handleSearchSubmit} className="relative w-full md:max-w-sm md:ml-auto">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2" size={18} />
               <input
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={handleSearchInputChange}
                 placeholder="Search items…"
                 className="w-full pl-10 pr-3 py-2 rounded-2xl border bg-white shadow-[0_2px_8px_0_rgba(128,128,128,0.12)] focus:outline-none focus:ring-2 focus:ring-black/5"
               />
-            </div>
+              <button
+                type="submit"
+                className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1 bg-blue-500 text-white text-xs rounded-lg hover:bg-blue-600 transition-colors"
+              >
+                Search
+              </button>
+            </form>
           </div>
 
           {/* Persistent file input for uploads */}
@@ -746,7 +1262,11 @@ async function callVideoAnalysisAPI(gcsUri: string) {
                       </div>
                       <div className="space-y-3">
                         {groups[bucket].map((item) => (
-                          <ItemCard key={`${item.id}-${item.category}-${item.isAnalyzing}`} item={item} />
+                          <ItemCard 
+                            key={`${item.id}-${item.category}-${item.isAnalyzing}`} 
+                            item={item} 
+                            onDelete={handleDeleteItem}
+                          />
                         ))}
                         {groups[bucket].length === 0 && (
                           <div className="text-sm text-neutral-400 italic tracking-wide">No items here yet.</div>
@@ -763,10 +1283,41 @@ async function callVideoAnalysisAPI(gcsUri: string) {
 
           {/* SegmentGrid -- TODO: DELETE AFTER, THIS IS JUST TO TEST*/}
           {/* <SegmentGrid /> */}
-          {/* <img src="https://storage.googleapis.com/finteck-hackathon/0c803398-processed-images/chair/frame_000000_object_000.png" alt="description" /> */}
+          {/* <img src="https://storage.googleapis.com/finteck-hackathon/0c803398-processed-images/0c803398-processed-images/chair/frame_000000_object_000.png" alt="description" /> */}
 
         </main>
-    </div>
+        
+        {/* Delete Confirmation Dialog */}
+        <DeleteConfirmDialog
+          isOpen={deleteDialog.isOpen}
+          onClose={() => setDeleteDialog(prev => ({ ...prev, isOpen: false }))}
+          onConfirm={confirmDeleteItem}
+          itemName={deleteDialog.itemName}
+          itemCategory={deleteDialog.itemCategory}
+        />
+        
+        {/* Search Popup */}
+        <SearchPopup
+          isOpen={searchPopup.isOpen}
+          onClose={() => setSearchPopup(prev => ({ ...prev, isOpen: false }))}
+          searchResults={searchPopup.searchResults}
+          searchQuery={searchPopup.searchQuery}
+          onItemClick={(item) => {
+            console.log('🔍 Item clicked in search:', item);
+            // You can add navigation or other actions here
+          }}
+        />
+        
+        {/* Progress Bar */}
+        <ProgressBar
+          isVisible={progressBar.isVisible}
+          progress={progressBar.progress}
+          status={progressBar.status}
+          currentStep={progressBar.currentStep}
+          totalSteps={progressBar.totalSteps}
+          completedSteps={progressBar.completedSteps}
+        />
+      </div>
   );
 }
 
