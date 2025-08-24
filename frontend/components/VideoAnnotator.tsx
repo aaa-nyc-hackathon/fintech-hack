@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Pause, Play, Scissors, Check, Trash } from "lucide-react";
+import { Pause, Play, Scissors, Check, Trash, Upload, CheckCircle } from "lucide-react";
 
 // ------------------------------------------------------------
 // Types
@@ -10,11 +10,13 @@ import { Pause, Play, Scissors, Check, Trash } from "lucide-react";
 
 type BBox = { x: number; y: number; w: number; h: number };
 
-type Annotation = {
+export type Annotation = {
   id: string;
   time: number; // seconds
   bbox: BBox;
   previewDataUrl: string; // cropped image preview of the box at that frame
+  gcsUri?: string; // GCS URI after upload
+  isUploading?: boolean; // Upload status
 };
 
 // ------------------------------------------------------------
@@ -31,6 +33,44 @@ const formatTime = (s: number) => {
 };
 
 // ------------------------------------------------------------
+// Helper functions
+// ------------------------------------------------------------
+
+// Convert data URL to File object and upload to GCS
+async function uploadCroppedImage(dataUrl: string, annotationId: string): Promise<string | null> {
+  try {
+    // Convert data URL to blob
+    const response = await fetch(dataUrl);
+    const blob = await response.blob();
+    
+    // Create a File object
+    const file = new File([blob], `annotation_${annotationId}.png`, { type: 'image/png' });
+    
+    // Upload to GCS using the existing upload endpoint
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    const uploadResponse = await fetch('/api/upload-video', {
+      method: 'POST',
+      body: formData,
+    });
+    
+    if (!uploadResponse.ok) {
+      throw new Error(`Upload failed: ${uploadResponse.status}`);
+    }
+    
+    const result = await uploadResponse.json();
+    console.log('✅ Cropped image uploaded to GCS:', result.gcsUri);
+    
+    return result.gcsUri;
+    
+  } catch (error) {
+    console.error('❌ Failed to upload cropped image:', error);
+    return null;
+  }
+}
+
+// ------------------------------------------------------------
 // VideoAnnotator
 // ------------------------------------------------------------
 
@@ -43,10 +83,12 @@ const formatTime = (s: number) => {
 export default function VideoAnnotator({
   src,
   onCapture,
+  onSaveAll,
   className,
 }: {
   src: string; // blob url or remote url
   onCapture?: (a: Annotation) => void; // callback so you can POST to your backend
+  onSaveAll?: (annotations: Annotation[]) => void; // callback when save all is pressed
   className?: string;
 }) {
   // Selection state for captured items
@@ -181,9 +223,28 @@ export default function VideoAnnotator({
       time: video.currentTime,
       bbox: { ...bbox },
       previewDataUrl: dataUrl,
+      isUploading: true,
     };
 
     setAnnots((a) => [annotation, ...a]);
+    
+    // Upload the cropped image immediately to GCS
+    uploadCroppedImage(dataUrl, annotation.id).then((gcsUri) => {
+      if (gcsUri) {
+        setAnnots((prev) => prev.map((a) => 
+          a.id === annotation.id 
+            ? { ...a, gcsUri, isUploading: false }
+            : a
+        ));
+      } else {
+        setAnnots((prev) => prev.map((a) => 
+          a.id === annotation.id 
+            ? { ...a, isUploading: false }
+            : a
+        ));
+      }
+    });
+    
     onCapture?.(annotation); // Let the parent send to backend
 
     // reset drag state (keep bbox rendered for a moment if you want)
@@ -194,13 +255,28 @@ export default function VideoAnnotator({
   const canCapture = useMemo(() => !!bbox && bbox.w > 6 && bbox.h > 6, [bbox]);
 
   const handleSaveAll = async () => {
-    // Example bulk POST; adjust the endpoint to your backend
     if (annots.length === 0) return;
-    await fetch("/api/items", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ annotations: annots }),
-    });
+    
+    // Filter annotations that have been successfully uploaded to GCS
+    const uploadedAnnotations = annots.filter(a => a.gcsUri && !a.isUploading);
+    
+    if (uploadedAnnotations.length === 0) {
+      console.log('⚠️ No annotations ready for processing. Some may still be uploading...');
+      return;
+    }
+    
+    console.log('🚀 Processing', uploadedAnnotations.length, 'annotations through valuation pipeline');
+    
+    // Call the parent's onSaveAll callback with the uploaded annotations
+    if (onSaveAll) {
+      onSaveAll(uploadedAnnotations);
+    }
+    
+    // Clear all annotations from the temporary view after processing
+    setAnnots([]);
+    setSelected([]);
+    
+    console.log('🧹 Cleared temporary annotation view');
   };
 
   const handleClear = () => setAnnots([]);
@@ -300,22 +376,50 @@ export default function VideoAnnotator({
                 <div key={a.id} className="relative rounded-xl border overflow-hidden bg-white">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={a.previewDataUrl} alt="capture" className="w-full aspect-square object-cover" />
-                  <div className="flex items-center justify-between p-2 text-xs text-gray-600">
-                    <span>t={formatTime(a.time)}</span>
-                    <button
-                      type="button"
-                      className={`ml-auto rounded-full border-2 w-5 h-5 flex items-center justify-center transition ${isSelected ? "bg-emerald-500 border-emerald-500" : "bg-white border-gray-300"}`}
-                      title={isSelected ? "Deselect" : "Select"}
-                      onClick={() => {
-                        setSelected((sel: string[]) =>
-                          isSelected ? sel.filter((id: string) => id !== a.id) : [...sel, a.id]
-                        );
-                      }}
-                    >
-                      {isSelected ? (
-                        <span className="block w-2 h-2 rounded-full bg-white" />
-                      ) : null}
-                    </button>
+                  <div className="p-2 text-xs">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-gray-600">t={formatTime(a.time)}</span>
+                      <button
+                        type="button"
+                        className={`ml-auto rounded-full border-2 w-5 h-5 flex items-center justify-center transition ${isSelected ? "bg-emerald-500 border-emerald-500" : "bg-white border-gray-300"}`}
+                        title={isSelected ? "Deselect" : "Select"}
+                        onClick={() => {
+                          setSelected((sel: string[]) =>
+                            isSelected ? sel.filter((id: string) => id !== a.id) : [...sel, a.id]
+                          );
+                        }}
+                      >
+                        {isSelected ? (
+                          <span className="block w-2 h-2 rounded-full bg-white" />
+                        ) : null}
+                      </button>
+                    </div>
+                    
+                    {/* Upload status */}
+                    <div className="flex items-center gap-1 text-xs">
+                      {a.isUploading ? (
+                        <>
+                          <Upload className="h-3 w-3 animate-pulse text-blue-500" />
+                          <span className="text-blue-500">Uploading...</span>
+                        </>
+                      ) : a.gcsUri ? (
+                        <>
+                          <CheckCircle className="h-3 w-3 text-green-500" />
+                          <span className="text-green-500">Ready</span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="text-red-500">Failed</span>
+                        </>
+                      )}
+                    </div>
+                    
+                    {/* GCS URI (truncated) */}
+                    {a.gcsUri && (
+                      <div className="text-xs text-gray-400 truncate mt-1" title={a.gcsUri}>
+                        {a.gcsUri.replace('gs://', '').split('/').slice(-2).join('/')}
+                      </div>
+                    )}
                   </div>
                 </div>
               );

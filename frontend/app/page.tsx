@@ -16,9 +16,10 @@ import { classNames, toCurrency, toCSV, download } from "@/utils/helpers";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Button } from "@/components/ui/button";
 import { SideNav } from "@/components/side-nav";
-import VideoAnnotator from "@/components/VideoAnnotator";
+import VideoAnnotator, { Annotation } from "@/components/VideoAnnotator";
 import SegmentGrid from "@/components/SegmentGrid";
 import { uploadFileToGCS } from "@/utils/upload";
+import { upsertItem, upsertVideo, downloadCSV, getStorageStats } from "@/utils/dataStorage";
 
 // GCS upload integration
 
@@ -105,7 +106,13 @@ export default function DashboardPage() {
   }, [items, videos, currentVideoId]);
 
   const onExportCSV = () => {
-    download(`items_${currentVideoId || "all"}.csv`, toCSV(filtered), "text/csv");
+    const filename = `items_${currentVideoId || "all"}_${new Date().toISOString().split('T')[0]}.csv`;
+    downloadCSV(filename, {
+      filter: currentVideoId ? { videoId: [currentVideoId] } : undefined,
+      includeHeaders: true,
+      dateFormat: "readable"
+    });
+    console.log('📊 Exported CSV with data storage system');
   };
 
   const onExportGoogleSheets = () => {
@@ -148,6 +155,83 @@ function extractGCSUris(data: any): string[] {
   }
   
   return gcsUris;
+}
+
+// Function to handle annotations save all - process captured images through valuation pipeline
+async function handleAnnotationsSaveAll(annotations: Annotation[]) {
+  try {
+    console.log('🚀 Processing', annotations.length, 'annotations through valuation pipeline');
+    
+    // Create placeholder items for each annotation
+    const placeholderItems: Item[] = [];
+    
+    annotations.forEach((annotation, index) => {
+      if (!annotation.gcsUri) {
+        console.warn('⚠️ Annotation missing GCS URI:', annotation.id);
+        return;
+      }
+      
+      const publicUrl = annotation.gcsUri.replace('gs://', 'https://storage.googleapis.com/');
+      
+      placeholderItems.push({
+        id: `annotation_${Date.now()}_${index}`,
+        name: "Analyzing...",
+        thumbnail: publicUrl,
+        marketPrice: 0,
+        timestamp: `${annotation.time.toFixed(1)}s`,
+        sources: [
+          { label: "Manual Capture", url: "#" },
+          { label: "GCS Storage", url: publicUrl }
+        ],
+        category: "$" as const, // Temporary category, will be updated
+        videoId: currentVideoId || "manual_capture",
+        isAnalyzing: true
+      });
+    });
+    
+    if (placeholderItems.length === 0) {
+      console.log('⚠️ No valid annotations to process');
+      return;
+    }
+    
+    // Add placeholder items to state immediately
+    setItems(prev => {
+      const newItems = [...prev, ...placeholderItems];
+      console.log('🎉 Added', placeholderItems.length, 'annotation items to the layout. Total items now:', newItems.length);
+      return newItems;
+    });
+    
+    // Force re-render to show new items immediately
+    setForceUpdate(prev => prev + 1);
+    
+    // Start individual API calls for each annotation
+    placeholderItems.forEach((item, index) => {
+      const annotation = annotations[index];
+      if (annotation?.gcsUri) {
+        // Save annotation item to data storage
+        upsertItem({
+          id: item.id,
+          name: item.name,
+          category: item.category,
+          marketPrice: item.marketPrice,
+          timestamp: item.timestamp,
+          videoId: item.videoId,
+          source: "manual_capture" as const,
+          gcsUri: annotation.gcsUri,
+          publicUrl: annotation.gcsUri.replace('gs://', 'https://storage.googleapis.com/'),
+          bbox: annotation.bbox,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          isAnalyzing: item.isAnalyzing || false
+        });
+        
+        processIndividualItem(annotation.gcsUri, item.id);
+      }
+    });
+    
+  } catch (error) {
+    console.error('❌ Error processing annotations:', error);
+  }
 }
 
 // Function to call valuation API for a single GCS URI
@@ -212,6 +296,22 @@ function createPlaceholderItems(gcsUris: string[]) {
       };
     
     placeholderItems.push(placeholderItem);
+    
+          // Save placeholder item to data storage
+      upsertItem({
+        id: placeholderItem.id,
+        name: placeholderItem.name,
+        category: placeholderItem.category,
+        marketPrice: placeholderItem.marketPrice,
+        timestamp: placeholderItem.timestamp,
+        videoId: placeholderItem.videoId,
+        source: "video_analysis" as const,
+        gcsUri: gcsUri,
+        publicUrl: publicUrl,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        isAnalyzing: placeholderItem.isAnalyzing || false
+      });
   });
   
         // Add placeholder items to state immediately
@@ -273,6 +373,23 @@ async function processIndividualItem(gcsUri: string, itemId: string) {
       
       // Force re-render to show updated item
       setForceUpdate(prev => prev + 1);
+      
+      // Save updated item to data storage
+      upsertItem({
+        id: itemId,
+        name: valuationData.name || "Unknown Item",
+        category: category,
+        marketPrice: valuationData.marketvalue,
+        confidence: valuationData.confidence,
+        timestamp: "0:00", // This will be updated from the item state
+        videoId: currentVideoId || "default",
+        source: "video_analysis" as const,
+        gcsUri: gcsUri,
+        publicUrl: gcsUri.replace('gs://', 'https://storage.googleapis.com/'),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        isAnalyzing: false
+      });
       
       console.log('✅ Updated item:', valuationData.name, 'Category:', category, 'Price:', valuationData.marketvalue);
     } else {
@@ -392,8 +509,12 @@ async function callVideoAnalysisAPI(gcsUri: string) {
     setCurrentVideoId(id);
     setVideoUrl(url);
     setShowUpload(false);
-  // Upload video to GCS and log URI
-  handleVideoUpload(file);
+    
+    // Save video to data storage
+    upsertVideo(meta);
+    
+    // Upload video to GCS and log URI
+    handleVideoUpload(file);
   };
 
   React.useEffect(() => {
@@ -408,6 +529,20 @@ async function callVideoAnalysisAPI(gcsUri: string) {
     setCurrentVideoId("");
     setVideoUrl(null);
     setForceUpdate(0);
+    
+    // Clear data storage
+    import('@/utils/dataStorage').then(({ clearDataStorage }) => {
+      clearDataStorage();
+    });
+  };
+  
+  const onExportAllData = () => {
+    const filename = `all_data_${new Date().toISOString().split('T')[0]}.csv`;
+    downloadCSV(filename, {
+      includeHeaders: true,
+      dateFormat: "readable"
+    });
+    console.log('📊 Exported all data to CSV');
   };
 
   return (
@@ -557,14 +692,9 @@ async function callVideoAnalysisAPI(gcsUri: string) {
                         key={currentVideoId}
                         src={videoUrl}
                         onCapture={(a) => {
-                          // Send to backend (example)
-                          fetch("/api/items", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify(a),
-                          });
-                          // Or convert to your Item type and insert into $, $$, $$$ lists
+                          console.log('📸 Captured annotation:', a);
                         }}
+                        onSaveAll={handleAnnotationsSaveAll}
                         className="mt-4"
                       />
                     ) : (
