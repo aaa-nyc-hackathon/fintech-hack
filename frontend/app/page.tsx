@@ -90,12 +90,14 @@ export default function DashboardPage() {
       if (!file) return;
       addVideo(file);
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [videos]
+    []
   );
 
-  const addVideo = (file: File) => {
-    const id = `v_${Date.now()}`;
+  const addVideo = useCallback((file: File) => {
+    console.log('🚀 Adding video to frontend:', file.name);
+    
+    // Create video meta for frontend storage only
+    const id = crypto.randomUUID();
     const url = URL.createObjectURL(file);
     const meta: VideoMeta = {
       id,
@@ -104,16 +106,20 @@ export default function DashboardPage() {
       createdAt: new Date().toISOString(),
       url,
     };
-    setVideos((prev) => [...prev, meta]);
+    
+    // Simple state updates
+    setVideos(prev => [...prev, meta]);
     setCurrentVideoId(id);
     setVideoUrl(url);
     setShowUpload(false);
-  };
+    
+    console.log('✅ Video added successfully:', meta);
+  }, []);
 
   React.useEffect(() => {
     const v = videos.find((x) => x.id === currentVideoId);
     setVideoUrl(v?.url ?? null);
-  }, [currentVideoId, videos]);
+  }, [currentVideoId]);
 
   const clearAllData = () => {
     if (!confirm("This will clear ALL items and videos. Continue?")) return;
@@ -237,26 +243,33 @@ export default function DashboardPage() {
             className="hidden"
             onChange={(e) => {
               const file = e.target.files?.[0];
-              if (file) addVideo(file);
+              if (file) {
+                addVideo(file);
+                e.currentTarget.value = ''; // Clear input to allow same file re-select
+              }
             }}
           />
 
           {/* Upload section or VideoAnnotator */}
           {videoUrl ? (
-            <VideoAnnotator
-              key={currentVideoId}
-              src={videoUrl}
-              onCapture={(a) => {
-                // Send to backend (example)
-                fetch("/api/items", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify(a),
-                });
-                // Or convert to your Item type and insert into $, $$, $$$ lists
-              }}
-              className="mt-4"
-            />
+            <div className="space-y-4">
+
+              
+              <VideoAnnotator
+                key={currentVideoId}
+                src={videoUrl}
+                onCapture={(a) => {
+                  // Send to backend (example)
+                  fetch("/api/items", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(a),
+                  });
+                  // Or convert to your Item type and insert into $, $$, $$$ lists
+                }}
+                className="mt-4"
+              />
+            </div>
           ) : (
             showUpload && (
               <div className="mb-6">
