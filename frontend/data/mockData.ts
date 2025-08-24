@@ -8,6 +8,7 @@ export type Item = {
   sources: Source[];
   category: "$" | "$$" | "$$$";
   videoId: string;
+  isAnalyzing?: boolean; // Optional flag to track analysis status
 };
 export type VideoMeta = {
   id: string;
@@ -15,6 +16,8 @@ export type VideoMeta = {
   fileName?: string;
   createdAt: string;
   url?: string;
+  gcsUri?: string; // GCS bucket URI (gs://bucket/path)
+  gcsUrl?: string; // Public HTTP URL for the video
 };
 
 export const mockVideos: VideoMeta[] = [
