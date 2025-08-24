@@ -10,12 +10,14 @@ from flask import Flask, request, jsonify
 import logging
 from datetime import datetime
 from yolo_inference import YOLOInference
+from flask_cors import CORS
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
+CORS(app, resources={r"/*": {"origins": "*", "methods": ["GET", "POST", "PUT"]}})
 
 def require_api_key(f):
     """Decorator to require API key authentication"""
