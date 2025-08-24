@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Pause, Play, Scissors, Save, Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Pause, Play, Scissors, Check, Trash } from "lucide-react";
 
 // ------------------------------------------------------------
 // Types
@@ -48,6 +49,8 @@ export default function VideoAnnotator({
   onCapture?: (a: Annotation) => void; // callback so you can POST to your backend
   className?: string;
 }) {
+  // Selection state for captured items
+  const [selected, setSelected] = useState<string[]>([]);
   const videoRef = useRef<HTMLVideoElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
   const [duration, setDuration] = useState(0);
@@ -205,7 +208,7 @@ export default function VideoAnnotator({
   return (
     <div className={className}>
       {/* Video + overlay */}
-      <div className="relative rounded-2xl overflow-hidden border bg-black">
+      <div className="relative rounded-2xl overflow-hidden border bg-black shadow-lg shadow-gray-200/60">
         <video
           ref={videoRef}
           src={src}
@@ -262,34 +265,61 @@ export default function VideoAnnotator({
       </div>
 
   {/* Actions */}
-  <div className="mt-3 flex items-center gap-2 pb-6">
-        <button
-          onClick={handleSaveAll}
-          className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 hover:bg-gray-50"
+  <div className="mt-6">
+    <div className="mb-2 text-sm text-gray-500">Drag to select an item. Release to capture.</div>
+    <div className="flex items-center gap-2 pb-6">
+      <Button variant="outline" onClick={handleSaveAll} className="gap-2">
+  <Check className="h-4 w-4" /> Save all
+      </Button>
+      <Button variant="outline" onClick={handleClear} className="gap-2">
+  <Trash className="h-4 w-4" /> Clear all
+      </Button>
+      {selected.length > 0 && (
+        <Button
+          variant="destructive"
+          onClick={() => {
+            setAnnots((ann: Annotation[]) => ann.filter((a: Annotation) => !selected.includes(a.id)));
+            setSelected([]);
+          }}
+          className="gap-2"
         >
-          <Save className="h-4 w-4" /> Save all
-        </button>
-        <button
-          onClick={handleClear}
-          className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 hover:bg-gray-50"
-        >
-          <Trash2 className="h-4 w-4" /> Clear annotations
-        </button>
-        <span className="text-sm text-gray-500">Drag to select an item. Release to capture.</span>
-      </div>
+          Clear selected
+        </Button>
+      )}
+    </div>
+  </div>
 
       {/* Thumbnails list */}
       {annots.length > 0 && (
-        <div className="mt-4">
+        <div className="mt-4 pb-8">
           <div className="text-sm text-gray-600 mb-2">Captured items ({annots.length})</div>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-            {annots.map((a) => (
-              <div key={a.id} className="rounded-xl border overflow-hidden bg-white">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={a.previewDataUrl} alt="capture" className="w-full aspect-square object-cover" />
-                <div className="p-2 text-xs text-gray-600">t={formatTime(a.time)}</div>
-              </div>
-            ))}
+            {annots.map((a) => {
+              const isSelected = selected.includes(a.id);
+              return (
+                <div key={a.id} className="relative rounded-xl border overflow-hidden bg-white">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={a.previewDataUrl} alt="capture" className="w-full aspect-square object-cover" />
+                  <div className="flex items-center justify-between p-2 text-xs text-gray-600">
+                    <span>t={formatTime(a.time)}</span>
+                    <button
+                      type="button"
+                      className={`ml-auto rounded-full border-2 w-5 h-5 flex items-center justify-center transition ${isSelected ? "bg-emerald-500 border-emerald-500" : "bg-white border-gray-300"}`}
+                      title={isSelected ? "Deselect" : "Select"}
+                      onClick={() => {
+                        setSelected((sel: string[]) =>
+                          isSelected ? sel.filter((id: string) => id !== a.id) : [...sel, a.id]
+                        );
+                      }}
+                    >
+                      {isSelected ? (
+                        <span className="block w-2 h-2 rounded-full bg-white" />
+                      ) : null}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

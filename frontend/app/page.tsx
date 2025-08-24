@@ -171,9 +171,9 @@ export default function DashboardPage() {
           {/* Controls */}
           <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3 md:gap-4 mb-5">
             <div className="flex items-center gap-2">
-              <label className="text-sm text-gray-600">Video:</label>
+              <label className="text-sm text-gray-600 font-bold">Video:</label>
               <Select value={currentVideoId} onValueChange={(v) => setCurrentVideoId(v)}>
-                <SelectTrigger className="w-[300px] rounded-xl">
+                <SelectTrigger className="w-[300px] rounded-xl shadow-[0_2px_8px_0_rgba(128,128,128,0.12)] bg-white">
                   <SelectValue placeholder="Select a video" />
                 </SelectTrigger>
                 <SelectContent>
@@ -189,7 +189,7 @@ export default function DashboardPage() {
 
             <div className="flex items-center gap-2">
               <button
-                className="rounded-full p-2 hover:bg-gray-100 border"
+                className="rounded-full p-2 hover:bg-gray-100 border shadow-[0_2px_8px_0_rgba(128,128,128,0.12)] bg-white"
                 title="Add new video"
                 onClick={() => fileInputRef.current?.click()}
               >
@@ -200,7 +200,7 @@ export default function DashboardPage() {
               </button>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <button className="rounded-full p-2 hover:bg-gray-100 border">
+                  <button className="rounded-full p-2 hover:bg-gray-100 border shadow-[0_2px_8px_0_rgba(128,128,128,0.12)] bg-white">
                     <MoreVertical className="h-5 w-5" />
                   </button>
                 </DropdownMenuTrigger>
@@ -218,7 +218,7 @@ export default function DashboardPage() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search items…"
-                className="w-full pl-10 pr-3 py-2 rounded-2xl border bg-white focus:outline-none focus:ring-2 focus:ring-black/5"
+                className="w-full pl-10 pr-3 py-2 rounded-2xl border bg-white shadow-[0_2px_8px_0_rgba(128,128,128,0.12)] focus:outline-none focus:ring-2 focus:ring-black/5"
               />
             </div>
           </div>
@@ -235,64 +235,75 @@ export default function DashboardPage() {
             }}
           />
 
-          {/* Upload section or VideoAnnotator */}
-          {videoUrl ? (
-            <VideoAnnotator
-              key={currentVideoId}
-              src={videoUrl}
-              onCapture={(a) => {
-                // Send to backend (example)
-                fetch("/api/items", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify(a),
-                });
-                // Or convert to your Item type and insert into $, $$, $$$ lists
-              }}
-              className="mt-4"
-            />
-          ) : (
-            showUpload && (
-              <div className="mb-6">
-                <div
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={onDrop}
-                  className="rounded-3xl border-2 border-dashed p-8 text-center bg-white hover:bg-gray-50 transition"
-                >
-                  <div className="mx-auto h-14 w-14 rounded-2xl bg-gray-100 flex items-center justify-center mb-3">
-                    <Upload />
-                  </div>
-                  <div className="text-lg font-medium">Drop a video here</div>
-                  <div className="text-gray-500 text-sm mb-4">or click to choose a file</div>
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    className="inline-flex items-center gap-2 rounded-2xl border px-4 py-2 bg-white hover:bg-gray-50"
-                  >
-                    <Video size={18} /> Select video
-                  </button>
-                </div>
-              </div>
-            )
-          )}
 
-          {/* Lists */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            {(["$", "$$", "$$$"] as const).map((bucket) => (
-              <div key={bucket} className="bg-white rounded-3xl border p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <h2 className="text-lg font-semibold">{bucket}</h2>
-                  <span className="text-xs text-gray-500">{groups[bucket].length} items</span>
-                </div>
-                <div className="space-y-3">
-                  {groups[bucket].map((item) => (
-                    <ItemCard key={item.id} item={item} />
+          {/* Main content sections */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Left: Upload/VideoAnnotator & Capture Items */}
+            <div className="col-span-1 md:col-span-2">
+              <div className="bg-white rounded-3xl border p-6 shadow-sm">
+                {videoUrl ? (
+                  <VideoAnnotator
+                    key={currentVideoId}
+                    src={videoUrl}
+                    onCapture={(a) => {
+                      // Send to backend (example)
+                      fetch("/api/items", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(a),
+                      });
+                      // Or convert to your Item type and insert into $, $$, $$$ lists
+                    }}
+                    className="mt-4"
+                  />
+                ) : (
+                  showUpload && (
+                    <div className="mb-6">
+                      <div
+                        onDragOver={(e) => e.preventDefault()}
+                        onDrop={onDrop}
+                        className="rounded-3xl border-2 border-dashed p-8 text-center bg-white hover:bg-gray-50 transition"
+                      >
+                        <div className="mx-auto h-14 w-14 rounded-2xl bg-gray-100 flex items-center justify-center mb-3">
+                          <Upload />
+                        </div>
+                        <div className="text-lg font-medium">Drop a video here</div>
+                        <div className="text-gray-500 text-sm mb-4">or click to choose a file</div>
+                        <button
+                          onClick={() => fileInputRef.current?.click()}
+                          className="inline-flex items-center gap-2 rounded-2xl border px-4 py-2 bg-white hover:bg-gray-50"
+                        >
+                          <Video size={18} /> Select video
+                        </button>
+                      </div>
+                    </div>
+                  )
+                )}
+              </div>
+            </div>
+            {/* Right: Vertical List Items */}
+            <div className="col-span-1">
+              <div className="bg-white rounded-3xl border p-6 shadow-sm">
+                <div className="grid grid-cols-1 gap-5">
+                  {(["$", "$$", "$$$"] as const).map((bucket) => (
+                    <div key={bucket} className="bg-white rounded-2xl border p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <h2 className="text-lg font-semibold">{bucket}</h2>
+                        <span className="text-xs text-gray-500">{groups[bucket].length} items</span>
+                      </div>
+                      <div className="space-y-3">
+                        {groups[bucket].map((item) => (
+                          <ItemCard key={item.id} item={item} />
+                        ))}
+                        {groups[bucket].length === 0 && (
+                          <div className="text-sm text-gray-500 italic">No items here yet.</div>
+                        )}
+                      </div>
+                    </div>
                   ))}
-                  {groups[bucket].length === 0 && (
-                    <div className="text-sm text-gray-500 italic">No items here yet.</div>
-                  )}
                 </div>
               </div>
-            ))}
+            </div>
           </div>
 
           {/* SegmentGrid -- TODO: DELETE AFTER, THIS IS JUST TO TEST*/}

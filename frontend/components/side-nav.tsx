@@ -25,7 +25,8 @@ export function SideNav({
   return (
     <aside
       className={cn(
-        "w-full",
+        "w-full transition-all duration-350",
+        collapsed ? "min-w-[72px]" : "min-w-[260px]",
         "md:h-screen md:sticky md:top-0 border-r bg-white p-3 md:p-4 flex flex-col"
       )}
       aria-label="Sidebar"
@@ -38,11 +39,21 @@ export function SideNav({
         <Button
           variant="outline"
           size="icon"
-          className="shrink-0 rounded-xl"
+          className="shrink-0 rounded-xl transition-transform duration-350"
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           onClick={onToggle}
         >
-          {collapsed ? <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M7 5l5 5-5 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg> : <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M13 5l-5 5 5 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>}
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 20 20"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            className={cn("transform transition-transform duration-300", collapsed ? "rotate-180" : "rotate-0")}
+          >
+            {/* ChevronLeft: expanded, ChevronRight: collapsed (rotated) */}
+            <path d="M13 5l-5 5 5 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
         </Button>
       </div>
 
