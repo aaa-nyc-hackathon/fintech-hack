@@ -26,8 +26,12 @@ def valuation_function(request):
     # Set CORS headers for the main request
     headers = {"Access-Control-Allow-Origin": "*"}
 
-    # Check API key authentication
-    api_key = request.headers.get('x-api-key')
+    # Check API key authentication from request body
+    request_json = request.get_json(silent=True)
+    if not request_json:
+        return 'Invalid request. Missing JSON body.', 400
+    
+    api_key = request_json.get('api_key')
     expected_api_key = os.environ.get('API_KEY')
     
     if not api_key or api_key != expected_api_key:
@@ -37,8 +41,8 @@ def valuation_function(request):
         return 'Only POST requests are accepted', 405
 
     try:
-        request_json = request.get_json(silent=True)
-        if not request_json or 'gcs_uri' not in request_json:
+        # request_json already parsed above for API key validation
+        if 'gcs_uri' not in request_json:
             return 'Invalid request. Missing "gcs_uri" in JSON body.', 400
 
         gcs_uri = request_json['gcs_uri']
