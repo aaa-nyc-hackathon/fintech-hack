@@ -1,3 +1,5 @@
+// import { getStorage, ref, uploadBytes, initializeApp } from "firebase";
+
 // export function gcsToHttps(gcsPath: string) {
 export function normalizeGCSPath(gcsPath: string) {
   if (!gcsPath) return gcsPath;
@@ -16,4 +18,26 @@ export function normalizeGCSPath(gcsPath: string) {
 //     /^gs:\\/\\/(.+?)\\/(.+)$/,
 //     'https://storage.googleapis.com/$1/$2'
 //   );
+// }
+
+// TODO: Replace the following with your app's Firebase project configuration
+// See: https://firebase.google.com/docs/web/learn-more#config-object
+// const firebaseConfig = {
+//   // ...
+//   storageBucket: 'BUCKET_NAME'
+// };
+
+// // Initialize Firebase
+// const app = initializeApp(firebaseConfig);
+
+// export function uploadImageFile(file: File, location: string) {
+//   // Create a root reference
+//   const storage = getStorage();
+//   // Create a reference to the specified location
+//   const bucketRef = ref(storage, location);
+//   // 'file' comes from the Blob or File API
+//   // The location should be in the format: 'finteck-hackathon/your-object-key'
+//   uploadBytes(bucketRef, file).then((snapshot: any) => {
+//     console.log('Uploaded a blob or file!');
+//   });
 // }
