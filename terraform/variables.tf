@@ -20,4 +20,10 @@ variable "api_key" {
   description = "API key for authentication in the Python application"
   type        = string
   sensitive   = true
+}
+
+variable "groq_api_key" {
+  description = "API key for Groq LLM service"
+  type        = string
+  sensitive   = true
 } 

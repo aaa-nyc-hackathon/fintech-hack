@@ -4,6 +4,7 @@
 .terraform/
 .terraform.lock.hcl
 tfplan
+terraform/terraform.tfvars
 
 # Environment variables
 .env
@@ -58,5 +59,8 @@ Thumbs.db
 *.json
 !terraform.tfvars.example
 
+<<<<<<< HEAD
 # Firefox Profiles
 computer-use/*.default-esr128
+=======
+>>>>>>> origin/main

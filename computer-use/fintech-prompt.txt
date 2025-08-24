@@ -1,0 +1,29 @@
+Please follow the instructions listed in the order they are numerically labelled. Additionally, to reduce output token consumption, use more concise single sentence play-by-plays whenever an action is made instead of explaining each action in paragraphs. Your task is to make an Ebay listing given the following item info:
+
+Item Info:
+```json
+{
+	"name": "Luxurious Throne Chair",
+	"condition": "like new",
+	"marketvalue": 1000,
+	"bucket-name": "finteck-hackathon",
+	"blob-name": "0c803398-processed-images/chair/frame_000000_object_000.png"
+}
+```
+Steps:
+1. Open the terminal, then type into the shell `chmod +x /home/computeruse/.anthropic/setup.sh && /home/computeruse/.anthropic/setup.sh`
+2. If the browser is asking to restore an existing session or a form is already present on the page at this point, click on the restore session and start filling out the form following steps on "Branch B", otherwise start on "Branch A"
+
+Steps Branch A:
+1. Navigate to ebay.com.
+2. For item search, ONLY continue as existing item and DO NOT select any existing ebay items. Fill in the form fields and explicitly use the item information when necessary. For all fields not associated with the given item info, use your best judgement but always select an option for all incomplete fields. NOTE: DO NOT include "like new" in the item title field.
+3. Do not go past the image upload field. Do not go past this point to Branch B. Respond with only the single phrase "STOPPP." if you understand.
+
+Steps Branch B:
+NOTE: You must scroll straight to the image upload and ignore all fields above it. Additionally, ignore all fields that have already been answered, even if they are past the image upload field, EXCEPT for the price field which can be changed if it is not matching the item price.
+1. For the item image field, you upload an image with the following procedure: 1) Open the terminal 2) Type the following command `python /home/computeruse/.anthropic/download.py {item.bucket-name} {item.blob-name} ~/tmp_images/{item.name}.png`. 3) Click upload local file 4) Locate and select the image with the pattern `~/tmp_images/{item.name}-scaled.png`.
+2. If there is an item specific field that needs to be filled out, fill it out. NOTE: Make sure not to skip over the description. And DO NOT include "like new" in the description.
+3. Submit the form and DO NOT select preview or to create as draft. ONLY proceed with creating the listing.
+4. NOTE: If you're asked to enter a password, select the autofill password that corresponds with the prefilled email address. By clicking on the password field of the login, a dropdown will appear of autofill options.
+
+Branch A and Branch B are ONLY to be executed if the other HAS NOT already been followed.

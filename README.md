@@ -102,14 +102,44 @@ curl -X POST "${API_URL}/analyze_video" \
 **Request Body:**
 ```json
 {
-  "video_uri": "gs://bucket-name/video.mp4"
+  "video_uri": "gs://bucket-name/video.mp4",
+  "frame_interval": 20
 }
 ```
 
 **Response:**
 ```json
 {
-  "duration": "120.5 seconds"
+  "video_uri": "gs://bucket-name/video.mp4",
+  "duration": "120.5 seconds",
+  "frame_interval": 20,
+  "total_frames_processed": 15,
+  "total_objects_detected": 45,
+  "object_categories": {
+    "person": [
+      {
+        "frame_number": 0,
+        "confidence": 0.95,
+        "gcs_path": "gs://bucket/abc12345-processed-images/person/frame_000000_object_000.png"
+      }
+    ]
+  },
+  "processed_images_bucket": "gs://bucket-name/abc12345-processed-images",
+  "frame_data": [
+    {
+      "frame_number": 0,
+      "timestamp_seconds": 0.0,
+      "objects": [
+        {
+          "object_id": 0,
+          "category_name": "person",
+          "confidence": 0.95,
+          "bbox": {"x1": 100, "y1": 200, "x2": 300, "y2": 500},
+          "gcs_path": "gs://bucket/abc12345-processed-images/person/frame_000000_object_000.png"
+        }
+      ]
+    }
+  ]
 }
 ```
 
@@ -120,6 +150,30 @@ curl -X POST "${API_URL}/analyze_video" \
 ### Health Check: `GET /health`
 
 Returns service health status.
+
+### Valuation Research: `POST /valuation_function`
+
+**Purpose:** Research and valuation analysis for documents and assets.
+
+**Headers Required:**
+- `x-api-key`: Your API key for authentication
+- `Content-Type: application/json`
+
+**Request Body:**
+```json
+{
+  "gcs_uri": "gs://bucket-name/document.pdf"
+}
+```
+
+**Response:**
+```json
+{
+  "analysis_result": "Valuation analysis completed",
+  "document_type": "PDF",
+  "gcs_uri": "gs://bucket-name/document.pdf"
+}
+```
 
 ## Configuration
 
@@ -132,6 +186,14 @@ Returns service health status.
 
 - MP4, AVI, MOV, MKV, and other formats supported by FFmpeg
 - Fallback to OpenCV for additional format support
+
+### Object Detection Features
+
+- **Frame-based Processing**: Analyzes every N frames (configurable via `frame_interval`)
+- **YOLO Integration**: Uses YOLOv8 for accurate object detection
+- **Automatic Categorization**: Groups detected objects by category
+- **GCS Storage**: Uploads cropped object images to organized bucket structure
+- **Rich Metadata**: Returns bounding boxes, confidence scores, and timestamps
 
 ## Security
 
