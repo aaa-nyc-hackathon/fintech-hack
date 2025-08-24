@@ -34,7 +34,7 @@ def valuation_function(request):
         # NOTE: gcloud handles url encoding
         #cloud_image_file = "0c803398-processed-images/potted plant/frame_000004_object_004.png"
         source_file_extension = gcs_uri.split('.')[-1] # get the file extension
-        local_image_file = "local_image"  + '.' + source_file_extension
+        local_image_file = "/tmp/local_image"  + '.' + source_file_extension
         print(f"Downloading image from GCS URI: {gcs_uri} to local file: {local_image_file}")
         download_file(gcs_uri, local_image_file, client)
         print(f"Downloaded image to {local_image_file}")
