@@ -20,6 +20,9 @@ import VideoAnnotator from "@/components/VideoAnnotator";
 import SegmentGrid from "@/components/SegmentGrid";
 // import { uploadImageFile } from "@/utils/gcs";
 
+// GCS upload integration
+
+
 import { MoreVertical } from "lucide-react"
 import {
   DropdownMenu,
@@ -45,7 +48,6 @@ export default function DashboardPage() {
   // Profile mock
   const [profile] = useState({ name: "Chaira Harder", email: "chaira@example.com" });
   const [profileOpen, setProfileOpen] = useState(false);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   const filtered = useMemo(() => {
     const byVid = items.filter((i) => i.videoId === currentVideoId);
@@ -86,6 +88,16 @@ export default function DashboardPage() {
 
   // Upload handling (client-side only demo)
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+// Example handler for video upload
+async function handleVideoUpload(file: File) {
+  try {
+    const result = await uploadFileToGCS(file);
+    console.log('GCS URI:', result.gcsUri);
+  } catch (error) {
+    console.error('Video upload failed:', error);
+  }
+}
   const onDrop = useCallback(
     (e: React.DragEvent<HTMLDivElement>) => {
       e.preventDefault();
@@ -93,14 +105,12 @@ export default function DashboardPage() {
       if (!file) return;
       addVideo(file);
     },
-    []
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [videos]
   );
 
-  const addVideo = useCallback(async (file: File) => {
-    console.log('🚀 Adding video to frontend:', file.name);
-    
-    // Create video meta for frontend storage only
-    const id = crypto.randomUUID();
+  const addVideo = (file: File) => {
+    const id = `v_${Date.now()}`;
     const url = URL.createObjectURL(file);
     const BUCKET_ID = "finteck-hackathon";
     // uploadImageFile(file, `${BUCKET_ID}/image.png`);
@@ -111,189 +121,24 @@ export default function DashboardPage() {
       createdAt: new Date().toISOString(),
       url,
     };
-    
-    // Simple state updates
-    setVideos(prev => [...prev, meta]);
+    setVideos((prev) => [...prev, meta]);
     setCurrentVideoId(id);
     setVideoUrl(url);
     setShowUpload(false);
-    
-    console.log('✅ Video added successfully:', meta);
-    
-    // Now upload to GCS
-    try {
-      console.log('📤 Starting GCS upload...');
-      
-      const formData = new FormData();
-      formData.append('file', file);
-      
-      const response = await fetch('/api/upload-video', {
-        method: 'POST',
-        body: formData,
-      });
-      
-      if (response.ok) {
-        const uploadResult = await response.json();
-        console.log('✅ GCS upload successful:', uploadResult);
-        
-        // Update the video meta with GCS info
-        setVideos(prev => prev.map(v => 
-          v.id === id 
-            ? { ...v, gcsUri: uploadResult.gcsUri, gcsUrl: uploadResult.publicUrl }
-            : v
-        ));
-        
-        console.log('🔗 GCS URI stored:', uploadResult.gcsUri);
-        console.log('🌐 Public URL:', uploadResult.publicUrl);
-        
-      } else {
-        const errorData = await response.json();
-        console.error('❌ GCS upload failed:', errorData);
-      }
-      
-    } catch (error) {
-      console.error('❌ Error during GCS upload:', error);
-    }
-  }, []);
+  // Upload video to GCS and log URI
+  handleVideoUpload(file);
+  };
 
   React.useEffect(() => {
     const v = videos.find((x) => x.id === currentVideoId);
     setVideoUrl(v?.url ?? null);
-  }, [currentVideoId]);
+  }, [currentVideoId, videos]);
 
   const clearAllData = () => {
     if (!confirm("This will clear ALL items and videos. Continue?")) return;
     setItems([]);
     setVideos([]);
     setCurrentVideoId("");
-  };
-
-  const populateRandomItems = async () => {
-    setIsAnalyzing(true);
-    try {
-      console.log('🚀 Calling Cloud Run API directly...');
-      
-      const API_URL = "https://us-central1-ai-fintech-hackathon.cloudfunctions.net/valuation-research-function";
-      const API_KEY = "gsafd854fasdfasdf8848674fjf74bfgr0wnfnd";
-      
-      // Use the current video's GCS URI if available, otherwise fallback to test URI
-      const currentVideo = videos.find(v => v.id === currentVideoId);
-      const VIDEO_URI = currentVideo?.gcsUri || "gs://finteck-hackathon/14f40801-processed-images/chair/frame_000000_object_000.png";
-      
-      console.log('🌐 API URL:', API_URL);
-      console.log('🔑 API Key:', API_KEY ? 'Present' : 'Missing');
-      console.log('📹 Video URI:', VIDEO_URI);
-      
-      const response = await fetch(API_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          gcs_uri: VIDEO_URI,
-          api_key: API_KEY
-        }),
-      });
-
-      console.log('📡 Response status:', response.status);
-      console.log('📡 Response headers:', Object.fromEntries(response.headers.entries()));
-
-      if (response.ok) {
-        const data = await response.json();
-        console.log('✅ API response received:', data);
-        console.log('📊 Full response data:', JSON.stringify(data, null, 2));
-        
-        // For now, just log the data and add mock items
-        const mockItems: Item[] = [
-          {
-            id: `mock_chair_1`,
-            name: "Vintage Chair",
-            thumbnail: "https://storage.googleapis.com/finteck-hackathon/processed-images/chair/frame_000000_object_000.png",
-            marketPrice: 150,
-            timestamp: "0:15",
-            sources: [
-              { label: "GCS Storage", url: "https://storage.googleapis.com/finteck-hackathon/processed-images/chair/frame_000000_object_000.png" },
-              { label: "AI Detection", url: "#" }
-            ],
-            category: "$$",
-            videoId: currentVideoId || "mock"
-          },
-          {
-            id: `mock_person_1`,
-            name: "Person",
-            thumbnail: "https://storage.googleapis.com/finteck-hackathon/processed-images/person/frame_000002_object_000.png",
-            marketPrice: 25,
-            timestamp: "0:40",
-            sources: [
-              { label: "GCS Storage", url: "https://storage.googleapis.com/finteck-hackathon/processed-images/person/frame_000002_object_000.png" },
-              { label: "AI Detection", url: "#" }
-            ],
-            category: "$",
-            videoId: currentVideoId || "mock"
-          }
-        ];
-        
-        setItems(prev => [...prev, ...mockItems]);
-        console.log(`✅ Added ${mockItems.length} mock items`);
-        
-      } else {
-        const errorText = await response.text();
-        console.error('❌ API call failed:', response.status);
-        console.error('❌ Error response:', errorText);
-        
-        // Add mock items on error too
-        const mockItems: Item[] = [
-          {
-            id: `error_fallback_1`,
-            name: "Error Fallback Item",
-            thumbnail: "https://storage.googleapis.com/finteck-hackathon/processed-images/error/fallback.png",
-            marketPrice: 100,
-            timestamp: "0:00",
-            sources: [
-              { label: "GCS Storage", url: "https://storage.googleapis.com/finteck-hackathon/processed-images/error/fallback.png" },
-              { label: "API Error", url: `#${response.status}` }
-            ],
-            category: "$$",
-            videoId: currentVideoId || "error"
-          }
-        ];
-        
-        setItems(prev => [...prev, ...mockItems]);
-        console.log(`✅ Added ${mockItems.length} fallback items due to API error`);
-      }
-      
-    } catch (error) {
-      console.error('❌ Error calling video analysis API:', error);
-      console.error('❌ Full error details:', error);
-      
-      // Add mock items on exception too
-      const mockItems: Item[] = [
-        {
-          id: `exception_fallback_1`,
-          name: "Exception Fallback Item",
-          thumbnail: "https://storage.googleapis.com/fintech-hackathon/processed-images/exception/fallback.png",
-          marketPrice: 75,
-          timestamp: "0:00",
-          sources: [
-            { label: "GCS Storage", url: "https://storage.googleapis.com/fintech-hackathon/processed-images/exception/fallback.png" },
-            { label: "Exception", url: "#" }
-          ],
-          category: "$",
-          videoId: currentVideoId || "exception"
-        }
-      ];
-      
-      setItems(prev => [...prev, ...mockItems]);
-      console.log(`✅ Added ${mockItems.length} fallback items due to exception`);
-      
-    } finally {
-      setIsAnalyzing(false);
-    }
-  };
-
-  const clearRandomItems = () => {
-    setItems(prev => prev.filter(item => !item.id.startsWith('random_')));
-    console.log('🗑️ Cleared all random items');
   };
 
   return (
@@ -368,32 +213,6 @@ export default function DashboardPage() {
                   )}
                 </SelectContent>
               </Select>
-              
-              {/* GCS Status Indicator */}
-              {currentVideoId && videos.find(v => v.id === currentVideoId)?.gcsUri && (
-                <div className="text-xs text-green-600 bg-green-50 px-3 py-1 rounded-lg border border-green-200">
-                  ☁️ Uploaded to GCS: {videos.find(v => v.id === currentVideoId)?.gcsUri}
-                </div>
-              )}
-              
-              <Button
-                onClick={populateRandomItems}
-                disabled={isAnalyzing}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-sm disabled:opacity-50"
-                variant="default"
-              >
-                {isAnalyzing ? '⏳ Calling API...' : '🚀 Call Cloud Run API'}
-              </Button>
-              
-              <Button
-                onClick={clearRandomItems}
-                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl shadow-sm"
-                variant="default"
-              >
-                🗑️ Clear Random Items
-              </Button>
-              
-
             </div>
 
             <div className="flex items-center gap-2">
@@ -440,10 +259,7 @@ export default function DashboardPage() {
             className="hidden"
             onChange={(e) => {
               const file = e.target.files?.[0];
-              if (file) {
-                addVideo(file);
-                e.currentTarget.value = ''; // Clear input to allow same file re-select
-              }
+              if (file) addVideo(file);
             }}
           />
 
