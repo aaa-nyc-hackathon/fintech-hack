@@ -26,14 +26,15 @@ import { upsertItem, upsertVideo, downloadCSV, getStorageStats } from "@/utils/d
 
 // GCS upload integration
 
-
 // import { MoreVertical } from "lucide-react"
-import { Eye, EyeOff } from "lucide-react"
+import { Eye, EyeOff, DollarSign, Filter } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
 } from "@/components/ui/dropdown-menu"
 
 
@@ -49,7 +50,17 @@ export default function DashboardPage() {
   const [search, setSearch] = useState("");
   const [showUpload, setShowUpload] = useState(true);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
-    const [forceUpdate, setForceUpdate] = useState(0); // Force re-render trigger
+  const [forceUpdate, setForceUpdate] = useState(0); // Force re-render trigger
+  const [priority, setPriority] = useState<'all' | '$' | '$$' | '$$$'>('all')
+
+  const baseBuckets = ['$', '$$', '$$$'] as const
+  const orderedBuckets = useMemo(() => {
+    if (priority === 'all') return baseBuckets
+    return [priority, ...baseBuckets.filter(b => b !== priority)]
+  }, [priority])
+
+  const cyclePriority = () =>
+    setPriority((p) => (p === 'all' ? '$' : p === '$' ? '$$' : p === '$$' ? '$$$' : 'all'))
   
   // Debug effect to track items changes
   useEffect(() => {
@@ -1137,7 +1148,7 @@ async function callVideoAnalysisAPI(gcsUri: string) {
                 size="icon"
                 onClick={() => fileInputRef.current?.click()}
                 title="Add new video"
-                className="rounded-full shadow-[0_2px_8px_0_rgba(128,128,128,0.12)] bg-white hover:bg-gray-100"
+                className="rounded-full shadow-[0_2px_6px_rgba(0,0,0,0.15)] hover:shadow-[0_3px_8px_rgba(0,0,0,0.2)] bg-white hover:bg-gray-100 transition-shadow"
               >
                 <svg
                   width="20"
@@ -1151,46 +1162,14 @@ async function callVideoAnalysisAPI(gcsUri: string) {
                 </svg>
                 <span className="sr-only">Add new video</span>
               </Button>
-              {/* <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button className="rounded-full p-2 hover:bg-gray-100 border shadow-[0_2px_8px_0_rgba(128,128,128,0.12)] bg-white">
-                    <MoreVertical className="h-5 w-5" />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => setShowUpload((s) => !s)}>
-                    {showUpload ? "Hide upload section" : "Show upload section"}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu> */}
-              {/* <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    className="rounded-full p-2 hover:bg-gray-100 border shadow-[0_2px_8px_0_rgba(128,128,128,0.12)] bg-white"
-                    aria-label="Options"
-                    title="Options"
-                  >
-                    {showUpload ? (
-                      <Eye className="h-5 w-5" />
-                    ) : (
-                      <EyeOff className="h-5 w-5" />
-                    )}
-                  </button>
-                </DropdownMenuTrigger>
 
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => setShowUpload((s) => !s)}>
-                    {showUpload ? "Hide upload section" : "Show upload section"}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu> */}
               <Button
                 type="button"
                 variant="outline"
                 size="icon"
                 onClick={() => setShowUpload((s) => !s)}
                 aria-pressed={showUpload}
-                className="rounded-full shadow-[0_4px_8px_0_rgba(0,0,0,0.2)] hover:shadow-[0_6px_12px_0_rgba(0,0,0,0.25)] transition-shadow"
+                className="rounded-full shadow-[0_2px_6px_rgba(0,0,0,0.15)] hover:shadow-[0_3px_8px_rgba(0,0,0,0.2)] bg-white hover:bg-gray-100 transition-shadow"
               >
                 {showUpload ? (
                   <Eye className="h-5 w-5" />
@@ -1202,6 +1181,52 @@ async function callVideoAnalysisAPI(gcsUri: string) {
                 </span>
               </Button>
 
+              {/* <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={cyclePriority}
+                title={priority === 'all' ? 'Show All (no priority)' : `Show ${priority} first`}
+                aria-label="Change price priority"
+                className="rounded-full shadow-[0_2px_6px_rgba(0,0,0,0.15)] hover:shadow-[0_3px_8px_rgba(0,0,0,0.2)] bg-white hover:bg-gray-100 transition-shadow w-9 h-9"
+              >
+                <span className="text-xs font-semibold leading-none tabular-nums">
+                  {priority === 'all' ? 'All' : priority}
+                </span>
+                <span className="sr-only">Toggle price priority</span>
+              </Button> */}
+
+              <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="rounded-full shadow-[0_2px_6px_rgba(0,0,0,0.15)] hover:shadow-[0_3px_8px_rgba(0,0,0,0.2)] bg-white hover:bg-gray-100 transition-shadow pl-3 pr-2 h-9"
+                  aria-label="Change price priority"
+                  title="Change price priority"
+                >
+                  {/* <DollarSign className="h-4 w-4 mr-2" /> */}
+                  <Filter className="h-4 w-4 mr-2" />
+                  <span className="text-sm font-medium">
+                    {priority === 'all' ? 'All' : priority}
+                  </span>
+                  <ChevronDown className="h-4 w-4 ml-1 opacity-70" />
+                </Button>
+              </DropdownMenuTrigger>
+
+              <DropdownMenuContent align="end" className="w-40">
+                <DropdownMenuRadioGroup
+                  value={priority}
+                  onValueChange={(v) => setPriority(v as 'all' | '$' | '$$' | '$$$')}
+                >
+                  <DropdownMenuRadioItem value="all">All</DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="$">$ first</DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="$$">$$ first</DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="$$$">$$$ first</DropdownMenuRadioItem>
+                </DropdownMenuRadioGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
 
 
             </div>
@@ -1402,7 +1427,8 @@ async function callVideoAnalysisAPI(gcsUri: string) {
                   });
                   return (
                     <div className="grid grid-cols-1 gap-6 flex-1" key={`groups-${items.length}-${forceUpdate}`}>
-                      {(["$", "$$", "$$$"] as const).map((bucket) => (
+                      {/* {(["$", "$$", "$$$"] as const).map((bucket) => ( */}
+                      {orderedBuckets.map((bucket) => (
                     <div key={`${bucket}-${groups[bucket].length}`} className="bg-white rounded-2xl border p-6 shadow-[0_4px_16px_0_rgba(128,128,128,0.16)]">
                       <div className="flex items-center justify-between mb-3">
                         <h2 className="text-lg font-semibold">{bucket}</h2>

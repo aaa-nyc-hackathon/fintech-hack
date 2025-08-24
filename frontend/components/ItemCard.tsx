@@ -93,7 +93,7 @@ export default function ItemCard({ item, onDelete }: ItemCardProps) {
         <div className="flex items-start justify-between gap-3">
           <div>
             <div className="font-semibold leading-tight line-clamp-2">{item.name}</div>
-            <div className="text-sm text-gray-500">{item.timestamp}</div>
+            {/* <div className="text-sm text-gray-500">{item.timestamp}</div> */}
           </div>
           <div className="text-right">
             <div className="font-semibold text-lg">{formatPrice(item.marketPrice)}</div>

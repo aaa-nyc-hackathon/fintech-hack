@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react";
-import { Download, FileSpreadsheet, Trash2 } from "lucide-react";
+import { Download, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
@@ -30,16 +30,21 @@ export function SideNav({
       aria-label="Sidebar"
     >
       {/* Header / brand + collapse button */}
-      <div className={cn("flex items-center mb-6", collapsed ? "justify-center" : "justify-between")}> 
+      <div
+        className={cn(
+          "flex items-center mb-6",
+          collapsed ? "justify-center" : "justify-between"
+        )}
+      >
         {!collapsed && (
           <div className="flex items-center gap-2 pt-1">
-          <img 
-            src="https://storage.googleapis.com/finteck-hackathon/hackathon_logo.png" 
-            alt="ValueSpotter Logo" 
-            className="h-8 w-8"
-          />
-          <span className="text-2xl font-bold leading-tight">ValueSpotter</span>
-        </div>
+            <img
+              src="https://storage.googleapis.com/finteck-hackathon/hackathon_logo.png"
+              alt="ValueSpotter Logo"
+              className="h-8 w-8"
+            />
+            <span className="text-2xl font-bold leading-tight">ValueSpotter</span>
+          </div>
         )}
         <Button
           variant="outline"
@@ -54,10 +59,18 @@ export function SideNav({
             viewBox="0 0 20 20"
             fill="none"
             xmlns="http://www.w3.org/2000/svg"
-            className={cn("transform transition-transform duration-300", collapsed ? "rotate-180" : "rotate-0")}
+            className={cn(
+              "transform transition-transform duration-300",
+              collapsed ? "rotate-180" : "rotate-0"
+            )}
           >
-            {/* ChevronLeft: expanded, ChevronRight: collapsed (rotated) */}
-            <path d="M13 5l-5 5 5 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            <path
+              d="M13 5l-5 5 5 5"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
           </svg>
         </Button>
       </div>
@@ -75,7 +88,7 @@ export function SideNav({
       {/* Footer / management section */}
       <div className={collapsed ? "mt-2" : "mt-8"}>
         {!collapsed && (
-          <div className="text-xs uppercase tracking-wide text-gray-500 mb-2">
+          <div className="text-xs uppercase tracking-wide text-gray-500 font-semibold mb-2">
             Data Management
           </div>
         )}
@@ -110,19 +123,27 @@ function SideNavItem({
 }: SideNavItemProps) {
   const base = collapsed
     ? "w-full flex items-center justify-center rounded-xl p-2 text-sm transition outline-none"
-    : "w-full flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition outline-none";
+    : "w-full flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition outline-none font-medium";
+
   const tones =
     intent === "danger"
-      ? "text-red-700 hover:bg-red-50 border border-transparent focus:ring-2 focus:ring-red-100"
-      : "text-gray-700 hover:bg-gray-50 border border-transparent focus:ring-2 focus:ring-black/5";
+      ? "text-red-600 hover:bg-red-50 focus:ring-2 focus:ring-red-100"
+      : "text-gray-700 hover:bg-gray-50 focus:ring-2 focus:ring-black/5";
+
   const content = icon ? (
-    <span className={collapsed ? "flex items-center justify-center" : "inline-flex items-center gap-3"}>
-      <span className={intent === "danger" ? "text-red-600" : "text-gray-600"}>{icon}</span>
+    <span
+      className={collapsed ? "flex items-center justify-center" : "inline-flex items-center gap-3"}
+    >
+      <span className={intent === "danger" ? "text-red-600" : "text-gray-600"}>
+        {icon}
+      </span>
       {!collapsed && <span className="truncate">{label}</span>}
       {collapsed && <span className="sr-only">{label}</span>}
     </span>
   ) : (
-    !collapsed && label ? <span className="truncate text-left w-full">{label}</span> : null
+    !collapsed && label ? (
+      <span className="truncate text-left w-full">{label}</span>
+    ) : null
   );
 
   if (href) {
@@ -134,12 +155,7 @@ function SideNavItem({
   }
 
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(base, tones)}
-      role="menuitem"
-    >
+    <button type="button" onClick={onClick} className={cn(base, tones)} role="menuitem">
       {content}
     </button>
   );
