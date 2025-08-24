@@ -38,4 +38,4 @@ def valuation_function(request):
         }
         return (json.dumps(error_details), 500, {'Content-Type': 'application/json'})
     # regular return
-    return ("Hello", 200)
+    return (gcs_uri, 200)
