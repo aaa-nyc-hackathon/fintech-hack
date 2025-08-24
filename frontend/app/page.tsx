@@ -33,6 +33,7 @@ import {
 // ------------------------------------------------------------
 
 export default function DashboardPage() {
+  const [collapsed, setCollapsed] = useState(false);
   const [videos, setVideos] = useState<VideoMeta[]>([]);
   const [items, setItems] = useState<Item[]>(mockItems);
   const [currentVideoId, setCurrentVideoId] = useState<string>("");
@@ -124,21 +125,14 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
-      {/* Layout grid */}
-      <div className="grid grid-cols-1 md:grid-cols-[260px_1fr]">
-        {/* Sidebar */}
-       
-        <div className="grid grid-cols-1 md:grid-cols-[260px_1fr]">
-          <SideNav
-            onExportCSV={onExportCSV}
-            onExportGoogleSheets={onExportGoogleSheets}
-            onClearAllData={clearAllData}
-          />
-          
-        </div>
-
-
-        {/* Main */}
+  <div className={`grid grid-cols-1 ${collapsed ? "md:grid-cols-[72px_1fr]" : "md:grid-cols-[260px_1fr]"} min-h-screen`}>
+        <SideNav
+          collapsed={collapsed}
+          onToggle={() => setCollapsed((c) => !c)}
+          onExportCSV={onExportCSV}
+          onExportGoogleSheets={onExportGoogleSheets}
+          onClearAllData={clearAllData}
+        />
         <main className="p-4 md:p-8">
           {/* Top bar */}
           <div className="flex items-center justify-between gap-4 mb-6">
