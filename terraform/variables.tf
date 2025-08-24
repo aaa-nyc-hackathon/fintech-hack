@@ -26,4 +26,16 @@ variable "groq_api_key" {
   description = "API key for Groq LLM service"
   type        = string
   sensitive   = true
+}
+
+variable "brave_api_key" {
+  description = "API key for Brave search service"
+  type        = string
+  sensitive   = true
+}
+
+variable "anthropic_api_key" {
+  description = "API key for Anthropic Claude service"
+  type        = string
+  sensitive   = true
 } 

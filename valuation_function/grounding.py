@@ -15,17 +15,32 @@ import anthropic
 import base64
 import json
 
+from pydantic import BaseModel, Field
+
+
 
 SEARCH_PROMPT = "Formulate a search query of what is in the above image so that I can search it on the web. Give me prices for similar items on the web."
-
 OUTPUT_FILE = "Analyze this feedback and output in JSON format with search query: \“query\” and reasoning: \“reasoning\". The JSON schema is as follows: {\"name\": \"string\", \"condition\": \"string\", \"marketvalue\": number, \"image\": \"string\", \"sources\": [{\"title\": \"string\", \"url\": \"string\", \"snippet\": \"string\", \"lowPrice\": \"int\", \"highPrice\": \"int\"}]}. Ensure the output is valid JSON."
 
 DEFAULT_BUCKET = "finteck-hackathon"
 DEFAULT_IMAGE = "2025FlatironLounge00092_HERO.jpg"
 
-from dotenv import load_dotenv
+class ValuationSource(BaseModel):
+    """Schema for a valuation source/article"""
+    title: str = Field(description="The title or headline of the source article or reference")
+    url: str = Field(description="The URL link to the source article or reference")
+    snippet: str = Field(description="A brief excerpt or summary from the source article")
 
-load_dotenv()
+
+class ValuationResponse(BaseModel):
+    """Schema for the valuation response containing item details and market analysis"""
+    name: str = Field(description="The name or description of the item being valued")
+    condition: str = Field(description="The condition of the item (e.g., 'like new', 'good', 'fair', 'poor')")
+    marketvalue: int = Field(description="The estimated market value of the item in dollars")
+    image: str = Field(description="URL or path to an image of the item (empty string if no image available)")
+    sources: list[ValuationSource] = Field(description="List of sources and references used for the valuation")
+    query: str = Field(description="The original query or question that prompted this valuation")
+
 
 A_API_KEY = os.getenv("A_API_KEY")
 BRAVE_SEARCH_API_KEY = os.getenv("BRAVE_SEARCH_API_KEY")
@@ -35,20 +50,28 @@ def image_to_base64(image_path):
         return base64.b64encode(img.read()).decode("utf-8")
 
 # vide the actual implementation for now
-def download_file(bucket_name: str, source_blob_name: str, dest_filename: str, client: storage.Client) -> None:
+def download_file(bucket_n_source_blob_name: str, dest_filename: str, client: storage.Client) -> None:
     # TODO: add error handling, add logging, add retry mechanism, factory pattern for different cloud providers
+    """ downloads a file from gcs """
+    assert bucket_n_source_blob_name.endswith(('.jpg', '.jpeg', '.png')), "only jpg/jpeg images are supported"
+    bucket_n_source_blob_name = bucket_n_source_blob_name.lstrip('gs://')
+    bucket_name, source_blob_name = bucket_n_source_blob_name.split('/', 1)
     bucket = client.bucket(bucket_name)
     blob = bucket.blob(source_blob_name)
     blob.download_to_filename(dest_filename)
 
 def call_anthropic(local_image_file: str) -> str:
     """ placeholder for calling anthropic api """
-    assert local_image_file.endswith(('.jpg', '.jpeg', '.png')), "only jpg/jpeg images are supported"
+    assert local_image_file.endswith(('.jpg', '.jpeg', '.png')), "only jpg/jpeg and png images are supported"
+    # get the image format jpeg or png
     client = anthropic.Anthropic(
         api_key=A_API_KEY,
     )
     base64_image = image_to_base64(local_image_file)
     image_media_type = "image/jpeg"  # or "image/png" based on your image type
+    if local_image_file.endswith('.png'):
+        image_media_type = "image/png"
+
     message = client.messages.create(
         model="claude-opus-4-1-20250805",
         max_tokens=1024,
@@ -99,42 +122,9 @@ def brave_search(query: str) -> dict:
           "content": query,
         }
       ],
+      response_format={"type": "json_object", "schema": ValuationResponse.model_json_schema()},
       model="brave",
       stream=False,
     )
     return completions
 
-def main():
-    pass
-
-if __name__ == "__main__":
-    # for testing purposes
-    # set the environment variable GOOGLE_APPLICATION_CREDENTIALS
-    # to the path of the service account key file
-    # export GOOGLE_APPLICATION_CREDENTIALS="path/to/key.json"
-    client = storage.Client()
-    local_image_file = "local_image.jpg"
-    "0c803398-processed-images/chair"
-    download_file(DEFAULT_BUCKET, DEFAULT_IMAGE, local_image_file, client)
-    stuff = call_anthropic(local_image_file)
-    results = process_json_response(stuff)
-    # now do something with the results, search via brave search api
-    query = results.get("query")
-    print(results)
-    serp = brave_search(query)
-    ## now we need to parse the serp and the results and add them together into an output json
-    # here we just print the serp for now, we need to iterate on prompt for output structure
-    print(serp)
-    # results["sources"].extend(serp) if serp is not None else []
-    output = json.loads(open("./json_schemata/rev_ground.json", "r").read())
-    # now we need to merge results into output
-    estimated_prices = [source.get("lowPrice", 0) for source in results.get("sources", []) if source.get("lowPrice") is not None]
-    estimated_prices.extend([source.get("highPrice", 0) for source in results.get("sources", []) if source.get("highPrice") is not None])
-    output["name"] = results.get("name", "unknown")
-    output["condition"] = results.get("condition", "unknown")
-    output["marketvalue"] = sum(estimated_prices) / len(estimated_prices) if len(estimated_prices) > 0 else -1
-    output["image"] = DEFAULT_BUCKET + "/" + DEFAULT_IMAGE
-    output["sources"] = results.get("sources", [])
-    output["query"] = results.get("query", "unknown")
-    output["reasoning"] = results.get("reasoning", "unknown")
-    # the case of the qeury seems changed from `query` but whatever...
