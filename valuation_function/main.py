@@ -1,6 +1,5 @@
 import functions_framework
 import os
-import logging
 import json
 
 from grounding import download_file, call_anthropic, process_json_response, ValuationResponse
@@ -28,17 +27,13 @@ def valuation_function(request):
             return 'Invalid request. Missing "gcs_uri" in JSON body.', 400
 
         gcs_uri = request_json['gcs_uri']
-        
         # Log the request for debugging
-        logging.info(f"Processing valuation request for: {gcs_uri}")
+        print(f"Processing valuation request for: {gcs_uri}")
 
-        
-
-       
-
+        # handle all the stuff...
 
     except Exception as e:
-        logging.exception("An unexpected error occurred in the valuation function.")
+        print(f"An unexpected error occurred in the valuation function: {str(e)!r}")
         error_details = {
             "error_message": str(e)
         }
